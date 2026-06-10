@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lock the page height to the actual viewport — prevents the whole page
+   scrolling on mobile when browser chrome (address bar) shows/hides */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 /* ─── TipTap / ProseMirror editor ────────────────────────────────────────────
    Use !important on typography because Tailwind Preflight resets all heading
    sizes to inherit, and the cascade order isn't guaranteed in production.
