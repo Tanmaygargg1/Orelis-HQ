@@ -1,39 +1,49 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, X, RefreshCw, GripVertical, Calendar, User } from "lucide-react";
+import { Plus, X, RefreshCw, Calendar, User, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  useDroppable,
+  useDraggable,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import type { Task, TaskStatus } from "@/lib/types";
 
-const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
-  { id: "todo", label: "To Do", color: "bg-zinc-100 text-zinc-600" },
-  { id: "in-progress", label: "In Progress", color: "bg-blue-100 text-blue-700" },
-  { id: "done", label: "Done", color: "bg-green-100 text-green-700" },
+const COLUMNS: { id: TaskStatus; label: string; dot: string }[] = [
+  { id: "todo", label: "To Do", dot: "bg-zinc-500" },
+  { id: "in-progress", label: "In Progress", dot: "bg-amber-400" },
+  { id: "done", label: "Done", dot: "bg-red-500" },
 ];
 
-function TaskCard({
-  task,
-  onStatusChange,
-  onDelete,
-}: {
-  task: Task;
-  onStatusChange: (id: string, status: TaskStatus) => void;
-  onDelete: (id: string) => void;
-}) {
+function TaskCard({ task, onDelete, overlay = false }: { task: Task; onDelete?: (id: string) => void; overlay?: boolean }) {
   return (
-    <div className="bg-white border border-zinc-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group">
+    <div className={clsx(
+      "bg-zinc-900 border rounded-lg p-3 transition-colors group select-none",
+      overlay ? "border-red-500/50 shadow-2xl rotate-1 scale-105" : "border-zinc-800 hover:border-zinc-700"
+    )}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-zinc-800 leading-snug flex-1">{task.title}</p>
-        <button
-          onClick={() => onDelete(task.id)}
-          className="opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-red-400 transition-all shrink-0"
-        >
-          <X size={13} />
-        </button>
+        <p className="text-sm font-medium text-zinc-200 leading-snug flex-1">{task.title}</p>
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+            className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all shrink-0 mt-0.5"
+          >
+            <X size={13} />
+          </button>
+        )}
       </div>
       {task.description && (
         <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">{task.description}</p>
       )}
-      <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+      <div className="flex items-center gap-3 mt-2 flex-wrap">
         {task.assignee && (
           <span className="flex items-center gap-1 text-xs text-zinc-500">
             <User size={11} /> {task.assignee}
@@ -45,17 +55,64 @@ function TaskCard({
           </span>
         )}
       </div>
-      {/* Move buttons */}
-      <div className="flex gap-1 mt-2.5 flex-wrap">
-        {COLUMNS.filter((c) => c.id !== task.status).map((col) => (
-          <button
-            key={col.id}
-            onClick={() => onStatusChange(task.id, col.id)}
-            className={clsx("text-xs px-2 py-0.5 rounded-full transition-colors", col.color)}
-          >
-            → {col.label}
-          </button>
+    </div>
+  );
+}
+
+function DraggableCard({ task, onDelete }: { task: Task; onDelete: (id: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform) }}
+      {...attributes}
+      className={clsx("relative", isDragging && "opacity-30")}
+    >
+      <div
+        {...listeners}
+        className="absolute left-2 top-3 text-zinc-700 hover:text-zinc-500 cursor-grab active:cursor-grabbing z-10"
+      >
+        <GripVertical size={14} />
+      </div>
+      <div className="pl-4">
+        <TaskCard task={task} onDelete={onDelete} />
+      </div>
+    </div>
+  );
+}
+
+function DroppableColumn({
+  col,
+  tasks,
+  isOver,
+  onDelete,
+}: {
+  col: typeof COLUMNS[number];
+  tasks: Task[];
+  isOver: boolean;
+  onDelete: (id: string) => void;
+}) {
+  const { setNodeRef } = useDroppable({ id: col.id });
+  return (
+    <div className="flex flex-col min-h-0">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
+        <div className={clsx("w-2 h-2 rounded-full", col.dot)} />
+        <span className="text-sm font-medium text-zinc-300">{col.label}</span>
+        <span className="text-xs text-zinc-600 ml-1">{tasks.length}</span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={clsx(
+          "flex-1 overflow-y-auto space-y-2 pr-1 rounded-xl min-h-24 transition-colors p-1",
+          isOver ? "bg-zinc-800/60 ring-1 ring-red-500/30" : "bg-transparent"
+        )}
+      >
+        {tasks.map((task) => (
+          <DraggableCard key={task.id} task={task} onDelete={onDelete} />
         ))}
+        {tasks.length === 0 && (
+          <p className="text-xs text-zinc-700 py-6 text-center">Drop tasks here</p>
+        )}
       </div>
     </div>
   );
@@ -66,13 +123,19 @@ export default function TasksPage() {
   const [sha, setSha] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
-  // New task form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignee, setAssignee] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor)
+  );
 
   async function loadTasks() {
     const res = await fetch("/api/tasks");
@@ -87,7 +150,7 @@ export default function TasksPage() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const res = await fetch("/api/tasks", {
+    await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -95,18 +158,15 @@ export default function TasksPage() {
         sha,
       }),
     });
-    const data = await res.json();
     setSaving(false);
-    if (data.task) {
-      await loadTasks();
-      setTitle(""); setDescription(""); setAssignee(""); setDueDate("");
-      setShowModal(false);
-    }
+    await loadTasks();
+    setTitle(""); setDescription(""); setAssignee(""); setDueDate("");
+    setShowModal(false);
   }
 
   async function handleStatusChange(id: string, status: TaskStatus) {
     const task = tasks.find((t) => t.id === id);
-    if (!task) return;
+    if (!task || task.status === status) return;
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status } : t));
     await fetch("/api/tasks", {
       method: "PUT",
@@ -126,121 +186,100 @@ export default function TasksPage() {
     await loadTasks();
   }
 
+  function handleDragStart({ active }: DragStartEvent) {
+    setActiveTask(tasks.find((t) => t.id === active.id) ?? null);
+  }
+
+  function handleDragOver({ over }: any) {
+    setOverId(over?.id ?? null);
+  }
+
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    setActiveTask(null);
+    setOverId(null);
+    if (!over) return;
+    handleStatusChange(active.id as string, over.id as TaskStatus);
+  }
+
+  const inputCls = "w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-colors";
+
   return (
     <div className="px-6 py-6 h-full flex flex-col">
       <div className="flex items-center justify-between mb-6 shrink-0">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900">Tasks</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">Track work across the team.</p>
+          <h1 className="text-xl font-semibold text-zinc-100">Tasks</h1>
+          <p className="text-zinc-500 text-sm mt-0.5">Drag cards between columns to update status.</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-500 transition-colors font-medium"
+          className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-500 transition-colors font-medium"
         >
           <Plus size={15} /> Add task
         </button>
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-zinc-400 text-sm">
+        <div className="flex items-center gap-2 text-zinc-500 text-sm">
           <RefreshCw size={14} className="animate-spin" /> Loading…
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0">
-          {COLUMNS.map((col) => {
-            const colTasks = tasks.filter((t) => t.status === col.id);
-            return (
-              <div key={col.id} className="flex flex-col min-h-0">
-                <div className="flex items-center gap-2 mb-3 shrink-0">
-                  <span className={clsx("text-xs font-semibold px-2.5 py-1 rounded-full", col.color)}>
-                    {col.label}
-                  </span>
-                  <span className="text-xs text-zinc-400">{colTasks.length}</span>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                  {colTasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      onStatusChange={handleStatusChange}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                  {colTasks.length === 0 && (
-                    <p className="text-xs text-zinc-400 py-4 text-center">No tasks here</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 flex-1 min-h-0">
+            {COLUMNS.map((col) => (
+              <DroppableColumn
+                key={col.id}
+                col={col}
+                tasks={tasks.filter((t) => t.status === col.id)}
+                isOver={overId === col.id}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeTask && <TaskCard task={activeTask} overlay />}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* Add task modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <h2 className="font-semibold text-zinc-900">New task</h2>
-              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-zinc-600">
+              <h2 className="font-semibold text-zinc-100">New task</h2>
+              <button onClick={() => setShowModal(false)} className="text-zinc-600 hover:text-zinc-400">
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={handleAdd} className="px-5 pb-5 space-y-3">
               <div>
-                <label className="block text-sm text-zinc-600 mb-1">Title *</label>
-                <input
-                  autoFocus
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  required
-                />
+                <label className="block text-sm text-zinc-400 mb-1.5">Title *</label>
+                <input autoFocus type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} required />
               </div>
               <div>
-                <label className="block text-sm text-zinc-600 mb-1">Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
+                <label className="block text-sm text-zinc-400 mb-1.5">Description</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm text-zinc-600 mb-1">Assignee</label>
-                  <input
-                    type="text"
-                    value={assignee}
-                    onChange={(e) => setAssignee(e.target.value)}
-                    placeholder="Name"
-                    className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
+                  <label className="block text-sm text-zinc-400 mb-1.5">Assignee</label>
+                  <input type="text" value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="Name" className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-sm text-zinc-600 mb-1">Due date</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
+                  <label className="block text-sm text-zinc-400 mb-1.5">Due date</label>
+                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} />
                 </div>
               </div>
               <div className="flex gap-2 justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm text-zinc-600 hover:text-zinc-900 transition-colors"
-                >
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 disabled:opacity-50 transition-colors"
-                >
+                <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-500 disabled:opacity-50 transition-colors">
                   {saving ? "Adding…" : "Add task"}
                 </button>
               </div>

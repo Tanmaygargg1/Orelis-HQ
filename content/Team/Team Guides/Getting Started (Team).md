@@ -57,7 +57,7 @@ Files are written in **Markdown** — a simple way of formatting text. Here's al
 | `**bold**` | **bold** |
 | `*italic*` | *italic* |
 | `- item` | Bullet point |
-| `[[Note Name]]` | Link to another note |
+| `Note Name` | Link to another note |
 
 You can also type normally and it will just show as regular text.
 
@@ -69,7 +69,7 @@ You can also type normally and it will just show as regular text.
 - **Double-click** anywhere on a file to start editing
 - **Escape** or click "Reading View" to stop editing and go back to the clean view
 - Your changes are only saved when you press **Cmd+S** or click the Save button
-- If you see `[[note name]]` highlighted in gold — that's a link to another note in the system
+- If you see `note name` highlighted in gold — that's a link to another note in the system
 
 ---
 

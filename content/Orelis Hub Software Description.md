@@ -16,7 +16,7 @@ Instead of acting as a chatbot, Orelis Hub functions as an active AI partner tha
 	* AI tasks
 ___
 ### Onboarding
-refer to [[Orelis Hub User Workflow.canvas]] for the onboarding process
+refer to Orelis Hub User Workflow.canvas for the onboarding process
 
 ### Dashboards
 there are 2 dashboards, one for businesses and one for individuals (depending on what is selected during onboarding)
@@ -48,10 +48,10 @@ Individual dashboard will have the following features:
 
 _____
 #### Orelis Hub for Individuals 
-[[Orelis Hub for Individuals]]
+Orelis Hub for Individuals
 
 #### Orelis Hub for Businesses
-[[Orelis Hub for Businesses]]
+Orelis Hub for Businesses
 
 
 ___

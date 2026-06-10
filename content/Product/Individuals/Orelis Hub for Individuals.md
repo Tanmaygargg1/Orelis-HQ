@@ -1,7 +1,7 @@
 ### Idea Launchpad 
 - The idea launchpad is used to validate users business ideas, with real market stats (based on data pulled from the web by AI in that respective country)
 
-the initial idea that was entered in the [[Orelis Hub User Workflow.canvas]] will be the first idea in the list, upon entry to the dashboard after logging in. in the onboarding, also ask users to input a market that they are targeting. 
+the initial idea that was entered in the Orelis Hub User Workflow.canvas will be the first idea in the list, upon entry to the dashboard after logging in. in the onboarding, also ask users to input a market that they are targeting. 
 
 - data should be pulled from various sources across the world wide web for market stats. for example, yahoo finance, trading view etc. 
 
@@ -38,7 +38,7 @@ Here is how the launchpad should look like:
 
 this report should be downloadable as a pdf. (paywall feature, but for now leave it as it is)
 
-after that, when user scrolls down, there will be an expansion of the page on [[Orelis Hub Software Description]]. 
+after that, when user scrolls down, there will be an expansion of the page on Orelis Hub Software Description. 
 users should get an overview of which idea is the best performing idea from their deck so far, and whether the user would like to start building the idea and lock in on it and use that as their idea.
 but before locking in, it should give a very large and extravagant warning and risks analysis, because this is a big step.
 - after the idea is locked in -> the ai system and algorithm should start giving tasks related to building that idea, and then eventually transitioning to the business page. 

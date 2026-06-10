@@ -1,2 +1,2 @@
 ## Orelis Hub
-[[Orelis Hub Homepage]]
+Orelis Hub Homepage

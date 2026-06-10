@@ -1,1 +1,1 @@
-[[Comprehensive Business Description]]
+Comprehensive Business Description
