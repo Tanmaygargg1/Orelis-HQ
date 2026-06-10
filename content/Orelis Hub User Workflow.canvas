@@ -1,0 +1,42 @@
+{
+	"nodes":[
+		{"id":"dc584c130a9f32d6","x":-303,"y":-129,"width":250,"height":60,"type":"text","text":"Established Business? "},
+		{"id":"5e774c1c2c641ccf","x":92,"y":-126,"width":250,"height":60,"type":"text","text":"Aspiring Individual"},
+		{"id":"568231c7b64339c9","x":-100,"y":-280,"width":250,"height":60,"type":"text","text":"**Onboarding**"},
+		{"id":"ad0353636952bf5a","x":-482,"y":20,"width":507,"height":360,"type":"text","text":"Prompts user to add in their business details. \n\nthis includes: \n- business website (if any)\n- business documents (descriptors, vision, mission etc)\n- any others (if relevant)\n\n->  last step of onboarding, the ai will use all the information compiled from the above questions and give a summary on what it understood about users business. changes can be made by the user here if the ai has made mistakes."},
+		{"id":"7041a57e4ff75cd7","x":-400,"y":460,"width":340,"height":180,"type":"text","text":"User gets access to Dashboard + Ai Advisor + Market Simulation (taster) + tasks"},
+		{"id":"3b6879553d5926be","x":-418,"y":720,"width":377,"height":240,"type":"text","text":"No paywall: \n- user can upload 1 document on the ai advisor\n- user can use the simulation 3 times a day. \n- tasks can be unlimited(check on this)"},
+		{"id":"b48a22c6d5751be4","x":-353,"y":1020,"width":250,"height":94,"type":"text","text":"IF user pays, unlimited access to all. "},
+		{"id":"c5c4c3f71f861b90","x":150,"y":7,"width":251,"height":193,"type":"text","text":"Prompts user to input an idea, to get a taster for the launchpad. \n- 5 MCQ\n- 1/2 open ended"},
+		{"id":"38c86ec230e142da","x":158,"y":308,"width":402,"height":242,"type":"text","text":"Launchpad provides the user with a full report on their business.\nprovides a prompt to send the report to users email, and a very small checkbox at the bottom to be added to the orelis newsletter. "},
+		{"id":"b55a8e3ec1ca3e23","x":234,"y":610,"width":250,"height":60,"type":"text","text":"Brings user to Dashboard"},
+		{"id":"03c6e82c57006c1e","x":234,"y":720,"width":250,"height":126,"type":"text","text":"On the dashboard, there is a bubble prompt to explore the ai market simulation"},
+		{"id":"366f8af4beddab12","x":235,"y":953,"width":250,"height":187,"type":"text","text":"user is brought to market simulation, maximum 3 simulations allowed before it locks under subscription model"},
+		{"id":"d283e413f8b2ff06","x":239,"y":1230,"width":250,"height":60,"type":"text","text":"user pays, unlimited access to all"},
+		{"id":"053d42d5d826b2de","x":-15,"y":1420,"width":250,"height":60,"type":"text","text":"Daily notifications in morning and evening"},
+		{"id":"6747e995a707b767","x":-265,"y":1580,"width":250,"height":60,"type":"text","text":"businesses"},
+		{"id":"ca8efe5d9a7f6a11","x":-265,"y":1720,"width":250,"height":141,"type":"text","text":"- competition updates\n- market variations \n- todays tasks\n"},
+		{"id":"ba3b827d42435324","x":143,"y":1573,"width":250,"height":60,"type":"text","text":"Individuals"},
+		{"id":"44def47e895d31d5","x":132,"y":1727,"width":250,"height":193,"type":"text","text":"- next steps forward\n- tasks\n- current priority \n- best ideas (from those listed in launchpad)"}
+	],
+	"edges":[
+		{"id":"420c33c658ea014c","fromNode":"568231c7b64339c9","fromSide":"bottom","toNode":"dc584c130a9f32d6","toSide":"top"},
+		{"id":"8c95569aaff000d0","fromNode":"568231c7b64339c9","fromSide":"bottom","toNode":"5e774c1c2c641ccf","toSide":"top"},
+		{"id":"64da8adf6d01b002","fromNode":"dc584c130a9f32d6","fromSide":"bottom","toNode":"ad0353636952bf5a","toSide":"top"},
+		{"id":"146b068426a6732f","fromNode":"ad0353636952bf5a","fromSide":"bottom","toNode":"7041a57e4ff75cd7","toSide":"top"},
+		{"id":"314e33e574daa868","fromNode":"7041a57e4ff75cd7","fromSide":"bottom","toNode":"3b6879553d5926be","toSide":"top"},
+		{"id":"8a748413c7fffca7","fromNode":"3b6879553d5926be","fromSide":"bottom","toNode":"b48a22c6d5751be4","toSide":"top"},
+		{"id":"f1cdd6c5f6f0b7d7","fromNode":"5e774c1c2c641ccf","fromSide":"bottom","toNode":"c5c4c3f71f861b90","toSide":"top"},
+		{"id":"1cd658850b04cea2","fromNode":"c5c4c3f71f861b90","fromSide":"bottom","toNode":"38c86ec230e142da","toSide":"top"},
+		{"id":"50aa2689c5264273","fromNode":"38c86ec230e142da","fromSide":"bottom","toNode":"b55a8e3ec1ca3e23","toSide":"top"},
+		{"id":"528d423eff0bf754","fromNode":"b55a8e3ec1ca3e23","fromSide":"bottom","toNode":"03c6e82c57006c1e","toSide":"top"},
+		{"id":"4adc5b3c66d1f2b0","fromNode":"03c6e82c57006c1e","fromSide":"bottom","toNode":"366f8af4beddab12","toSide":"top"},
+		{"id":"14669222a61caa00","fromNode":"366f8af4beddab12","fromSide":"bottom","toNode":"d283e413f8b2ff06","toSide":"top"},
+		{"id":"0484ffce7ba3ad07","fromNode":"b48a22c6d5751be4","fromSide":"bottom","toNode":"053d42d5d826b2de","toSide":"top"},
+		{"id":"47353079c860292f","fromNode":"d283e413f8b2ff06","fromSide":"bottom","toNode":"053d42d5d826b2de","toSide":"top"},
+		{"id":"4e1c416fba7bac29","fromNode":"053d42d5d826b2de","fromSide":"bottom","toNode":"6747e995a707b767","toSide":"top"},
+		{"id":"dbf22df585a5aba0","fromNode":"6747e995a707b767","fromSide":"bottom","toNode":"ca8efe5d9a7f6a11","toSide":"top"},
+		{"id":"15e03b6cf565a126","fromNode":"053d42d5d826b2de","fromSide":"bottom","toNode":"ba3b827d42435324","toSide":"top"},
+		{"id":"0dabfeb5131bfdad","fromNode":"ba3b827d42435324","fromSide":"bottom","toNode":"44def47e895d31d5","toSide":"top"}
+	]
+}

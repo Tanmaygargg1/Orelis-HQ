@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.prose-md h1 { @apply text-2xl font-bold mb-4 mt-6 text-zinc-900; }
+.prose-md h2 { @apply text-xl font-semibold mb-3 mt-5 text-zinc-900; }
+.prose-md h3 { @apply text-lg font-semibold mb-2 mt-4 text-zinc-800; }
+.prose-md p { @apply mb-3 text-zinc-700 leading-relaxed; }
+.prose-md ul { @apply list-disc pl-5 mb-3 text-zinc-700; }
+.prose-md ol { @apply list-decimal pl-5 mb-3 text-zinc-700; }
+.prose-md li { @apply mb-1; }
+.prose-md a { @apply text-indigo-600 underline hover:text-indigo-800; }
+.prose-md code { @apply bg-zinc-100 px-1.5 py-0.5 rounded text-sm font-mono text-zinc-800; }
+.prose-md pre { @apply bg-zinc-100 p-4 rounded-lg mb-3 overflow-x-auto; }
+.prose-md pre code { @apply bg-transparent p-0; }
+.prose-md blockquote { @apply border-l-4 border-zinc-300 pl-4 italic text-zinc-500 mb-3; }
+.prose-md hr { @apply border-zinc-200 my-4; }
+.prose-md table { @apply w-full mb-4 border-collapse text-sm; }
+.prose-md th { @apply border border-zinc-300 px-3 py-2 bg-zinc-50 font-semibold text-left; }
+.prose-md td { @apply border border-zinc-300 px-3 py-2; }
+.prose-md strong { @apply font-semibold text-zinc-900; }
+.prose-md img { @apply max-w-full rounded-lg my-3; }
+
+/* wikilinks rendered as inline chips */
+.wikilink {
+  @apply text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-sm no-underline hover:bg-indigo-100;
+}
