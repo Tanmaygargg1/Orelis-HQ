@@ -10,4 +10,8 @@ testing file one.
 
 i hope all the sync works correctly.
 
-\>\[!callout\]
+\>\[!callout
+
+**bold**
+
+_italics_
