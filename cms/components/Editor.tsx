@@ -20,6 +20,41 @@ import clsx from "clsx";
 
 // ── Markdown conversion ──────────────────────────────────────────────
 
+const CALLOUT_META: Record<string, { icon: string; label: string }> = {
+  note:      { icon: "ℹ️", label: "Note" },
+  tip:       { icon: "💡", label: "Tip" },
+  warning:   { icon: "⚠️", label: "Warning" },
+  caution:   { icon: "🔥", label: "Caution" },
+  important: { icon: "❗", label: "Important" },
+  danger:    { icon: "💥", label: "Danger" },
+  info:      { icon: "📘", label: "Info" },
+  success:   { icon: "✅", label: "Success" },
+  failure:   { icon: "❌", label: "Failure" },
+  bug:       { icon: "🐛", label: "Bug" },
+  example:   { icon: "📋", label: "Example" },
+  question:  { icon: "❓", label: "Question" },
+  quote:     { icon: "💬", label: "Quote" },
+  todo:      { icon: "☑️", label: "To Do" },
+  abstract:  { icon: "📄", label: "Abstract" },
+};
+
+function calloutLabel(type: string) {
+  const m = CALLOUT_META[type.toLowerCase()];
+  return m ? `${m.icon} ${m.label}` : `📝 ${type}`;
+}
+
+/** Post-process marked HTML to convert callout blockquotes to styled divs */
+function processCallouts(html: string): string {
+  return html.replace(
+    /<blockquote>\s*<p>\[!(\w+)\](?:<br\s*\/?>)?\s*([\s\S]*?)<\/p>\s*<\/blockquote>/gi,
+    (_, type, body) => {
+      const t = type.toLowerCase();
+      const content = body.replace(/<br\s*\/?>/g, "<br>").trim();
+      return `<div class="callout callout-${t}" data-callout="${t}"><div class="callout-title">${calloutLabel(t)}</div><div class="callout-body">${content}</div></div>`;
+    }
+  );
+}
+
 const td = new TurndownService({
   headingStyle: "atx",
   codeBlockStyle: "fenced",
@@ -32,13 +67,25 @@ td.addRule("wikilink", {
   replacement: (_: string, node: any) => node.textContent || "",
 });
 
+// Preserve callout divs → Obsidian callout syntax
+td.addRule("callout", {
+  filter: (node: any) => node.nodeName === "DIV" && node.hasAttribute("data-callout"),
+  replacement: (_: string, node: any) => {
+    const type = (node.getAttribute("data-callout") || "note").toUpperCase();
+    const bodyEl = node.querySelector ? node.querySelector(".callout-body") : null;
+    const lines = (bodyEl?.textContent || "").trim().split("\n");
+    const bodyMd = lines.map((l: string) => `> ${l}`).join("\n");
+    return `> [!${type}]\n${bodyMd}\n\n`;
+  },
+});
+
 function mdToHtml(md: string): string {
-  // Replace [[wikilinks]] with styled spans BEFORE markdown parsing
   const withChips = md.replace(
     /\[\[([^\]]+)\]\]/g,
     (_, title) => `<span class="wikilink">[[${title}]]</span>`
   );
-  return marked.parse(withChips) as string;
+  const html = marked.parse(withChips) as string;
+  return processCallouts(html);
 }
 
 function htmlToMd(html: string): string {
