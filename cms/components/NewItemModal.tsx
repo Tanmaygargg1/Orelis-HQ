@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
 import { X } from "lucide-react";
+import { broadcastRefresh } from "@/lib/refresh";
 
 interface Props {
   type: "file" | "folder";
   parentPath?: string;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated?: () => void;
 }
 
 export default function NewItemModal({ type, parentPath = "", onClose, onCreated }: Props) {
@@ -32,14 +33,19 @@ export default function NewItemModal({ type, parentPath = "", onClose, onCreated
     });
     const data = await res.json();
     if (data.error) { setError(data.error); setLoading(false); return; }
-    onCreated();
+    broadcastRefresh();
+    onCreated?.();
+    onClose();
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl w-full max-w-sm">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="font-semibold text-zinc-100">New {type === "file" ? "file" : "folder"}</h2>
+          <h2 className="font-semibold text-zinc-100">
+            New {type === "file" ? "file" : "folder"}
+            {parentPath && <span className="text-zinc-500 font-normal text-sm ml-1">in {parentPath.split("/").pop()}</span>}
+          </h2>
           <button onClick={onClose} className="text-zinc-600 hover:text-zinc-400 transition-colors"><X size={18} /></button>
         </div>
         <form onSubmit={handleCreate} className="px-5 pb-5 space-y-4">

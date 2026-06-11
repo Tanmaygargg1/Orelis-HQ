@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getContents, writeFile, deleteFile, moveItem } from "@/lib/github";
+import { getContents, writeFile, deleteFile, moveItem, deleteFolder } from "@/lib/github";
 import { cacheGet, cacheSet, cacheInvalidate } from "@/lib/cache";
 
 type Params = { params: { path: string[] } };
@@ -68,12 +68,17 @@ export async function DELETE(req: Request, { params }: Params) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const subPath = toSubPath(params.path);
-  const { sha } = await req.json();
-  if (!sha) return NextResponse.json({ error: "SHA required" }, { status: 400 });
+
+  let sha: string | undefined;
+  try { sha = (await req.json())?.sha; } catch { /* no body = folder delete */ }
 
   try {
-    await deleteFile(subPath, sha);
-    cacheInvalidate("files:"); // bust everything
+    if (sha) {
+      await deleteFile(subPath, sha);
+    } else {
+      await deleteFolder(subPath);
+    }
+    cacheInvalidate("files:");
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

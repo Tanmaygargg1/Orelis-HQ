@@ -2,8 +2,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, FilePlus, FolderPlus } from "lucide-react";
 import ContentGrid from "@/components/ContentGrid";
+import Breadcrumb from "@/components/Breadcrumb";
+import NewItemModal from "@/components/NewItemModal";
+import { useRefreshListener } from "@/lib/refresh";
 import type { FileItem } from "@/lib/types";
 
 const Editor = dynamic(() => import("@/components/Editor"), { ssr: false });
@@ -16,6 +19,7 @@ export default function ContentPathPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [modal, setModal] = useState<"file" | "folder" | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -29,6 +33,7 @@ export default function ContentPathPage() {
   }, [subPath]);
 
   useEffect(() => { load(); }, [load]);
+  useRefreshListener(load);
 
   if (loading) {
     return (
@@ -45,12 +50,27 @@ export default function ContentPathPage() {
     return (
       <div className="px-6 md:px-8 py-8 max-w-5xl">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-zinc-100">{subPath.split("/").pop()}</h1>
-          <p className="text-zinc-500 text-sm mt-1">
-            Drag the <span className="text-zinc-400">⠿</span> handle to move files and folders.
-          </p>
+          <Breadcrumb path={subPath} />
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-xl font-semibold text-zinc-100">{subPath.split("/").pop()}</h1>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setModal("file")}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 border border-zinc-700 rounded-lg hover:border-zinc-600 hover:text-zinc-200 transition-colors"
+              >
+                <FilePlus size={13} /> New file
+              </button>
+              <button
+                onClick={() => setModal("folder")}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 border border-zinc-700 rounded-lg hover:border-zinc-600 hover:text-zinc-200 transition-colors"
+              >
+                <FolderPlus size={13} /> New folder
+              </button>
+            </div>
+          </div>
         </div>
-        <ContentGrid items={files} currentPath={subPath} onRefresh={load} />
+        {modal && <NewItemModal type={modal} parentPath={subPath} onClose={() => setModal(null)} />}
+        <ContentGrid items={files} currentPath={subPath} />
       </div>
     );
   }

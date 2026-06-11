@@ -62,15 +62,32 @@ export async function deleteFile(subPath: string, sha: string) {
 
 /** Move a file or folder to a new path within content/ */
 export async function moveItem(fromSubPath: string, toSubPath: string): Promise<void> {
-  const result = await getContents(fromSubPath);
-  if (result.type === "file") {
-    await writeFile(toSubPath, result.content); // create at destination
-    await deleteFile(fromSubPath, result.sha);  // remove from source
-  } else {
-    // Recursively move every file inside the directory
-    for (const item of result.files) {
-      await moveItem(item.path, `${toSubPath}/${item.name}`);
+  const path = `${base()}/${fromSubPath}`;
+  const { data } = await getClient().repos.getContent({ owner: owner(), repo: repo(), path });
+
+  if (Array.isArray(data)) {
+    // Raw listing — includes .gitkeep and hidden files so the source folder is fully emptied
+    for (const item of data) {
+      await moveItem(`${fromSubPath}/${item.name}`, `${toSubPath}/${item.name}`);
     }
+  } else if (data.type === "file") {
+    const content = Buffer.from(data.content ?? "", "base64").toString("utf-8");
+    await writeFile(toSubPath, content);
+    await deleteFile(fromSubPath, data.sha);
+  }
+}
+
+/** Recursively delete a folder and all its contents */
+export async function deleteFolder(subPath: string): Promise<void> {
+  const path = `${base()}/${subPath}`;
+  const { data } = await getClient().repos.getContent({ owner: owner(), repo: repo(), path });
+
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      await deleteFolder(`${subPath}/${item.name}`);
+    }
+  } else if (data.type === "file") {
+    await deleteFile(subPath, data.sha);
   }
 }
 
