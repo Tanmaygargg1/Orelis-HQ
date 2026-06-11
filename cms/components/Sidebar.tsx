@@ -138,12 +138,8 @@ function FileNode({
       >
         <MoreHorizontal size={11} />
       </button>
-      <div
-        {...listeners}
-        {...attributes}
-        className="p-1 rounded text-zinc-700 hover:text-zinc-400 cursor-grab active:cursor-grabbing transition-colors"
-        onClick={(e) => e.stopPropagation()}
-      >
+      {/* Visual drag indicator only — listeners are on the row element */}
+      <div className="p-1 rounded text-zinc-700 pointer-events-none">
         <GripVertical size={11} />
       </div>
       {menuOpen && (
@@ -207,7 +203,7 @@ function FileNode({
 
   if (item.type === "dir") {
     return (
-      <div ref={setRef}>
+      <div ref={setRef} {...listeners} {...attributes} className="touch-none select-none">
         {confirmDelete && (
           <DeleteModal
             name={item.name} isFolder
@@ -250,7 +246,7 @@ function FileNode({
 
   // File node
   return (
-    <div ref={setRef} className="relative">
+    <div ref={setRef} {...listeners} {...attributes} className="relative touch-none select-none">
       {confirmDelete && (
         <DeleteModal
           name={item.name.replace(/\.md$/, "")}

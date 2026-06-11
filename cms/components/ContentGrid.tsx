@@ -121,7 +121,12 @@ function ItemCard({ item }: { item: FileItem }) {
 
       <div
         ref={setRef}
-        className={clsx("relative group", isDragging && "opacity-25 pointer-events-none")}
+        {...listeners}
+        {...attributes}
+        className={clsx(
+          "relative group touch-none select-none cursor-grab active:cursor-grabbing",
+          isDragging && "opacity-25 pointer-events-none",
+        )}
       >
         {/* Drop ring on hovered folder */}
         {isOver && item.type === "dir" && (
@@ -171,13 +176,8 @@ function ItemCard({ item }: { item: FileItem }) {
           )}
         </div>
 
-        {/* Drag handle */}
-        <div
-          {...listeners}
-          {...attributes}
-          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1.5 text-zinc-600 hover:text-zinc-400 z-20"
-          onClick={(e) => e.stopPropagation()}
-        >
+        {/* Drag handle — visual indicator only, listeners are on the outer div */}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-zinc-600 z-20 pointer-events-none">
           <GripVertical size={14} />
         </div>
 
@@ -205,6 +205,7 @@ function ItemCard({ item }: { item: FileItem }) {
         ) : (
           <Link
             href={`/content/${item.path}`}
+            draggable={false}
             onDoubleClick={(e) => { e.preventDefault(); startRename(); }}
             className={clsx(
               "flex items-center gap-3 p-4 pr-8 border rounded-xl transition-colors",

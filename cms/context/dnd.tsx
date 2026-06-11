@@ -16,6 +16,7 @@ export const useSharedDnd = () => useContext(DndStateCtx);
 export default function DndProvider({ children }: { children: React.ReactNode }) {
   const [activeItem, setActiveItem] = useState<ActiveItem | null>(null);
   const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -51,6 +52,7 @@ export default function DndProvider({ children }: { children: React.ReactNode })
     if (newPath === fromPath) return;
 
     setMoving(true);
+    setMoveError("");
     try {
       const res = await fetch(
         `/api/files/${fromPath.split("/").map(encodeURIComponent).join("/")}`,
@@ -61,7 +63,15 @@ export default function DndProvider({ children }: { children: React.ReactNode })
         },
       );
       const data = await res.json();
-      if (!data.error) broadcastRefresh();
+      if (data.error) {
+        setMoveError(data.error);
+        setTimeout(() => setMoveError(""), 4000);
+      } else {
+        broadcastRefresh();
+      }
+    } catch {
+      setMoveError("Move failed — check your connection");
+      setTimeout(() => setMoveError(""), 4000);
     } finally {
       setMoving(false);
     }
@@ -86,8 +96,13 @@ export default function DndProvider({ children }: { children: React.ReactNode })
         </DragOverlay>
 
         {moving && (
-          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-zinc-300 text-sm shadow-2xl">
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-zinc-300 text-sm shadow-2xl pointer-events-none">
             <Loader2 size={14} className="animate-spin text-red-400" /> Moving…
+          </div>
+        )}
+        {moveError && (
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 bg-zinc-900 border border-red-500/50 rounded-lg px-4 py-2.5 text-red-400 text-sm shadow-2xl">
+            {moveError}
           </div>
         )}
       </DndContext>
