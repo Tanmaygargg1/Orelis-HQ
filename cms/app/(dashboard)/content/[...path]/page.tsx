@@ -1,12 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Folder, FileText, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
+import ContentGrid from "@/components/ContentGrid";
 import type { FileItem } from "@/lib/types";
 
-// ssr:false prevents TipTap SSR hydration mismatch
 const Editor = dynamic(() => import("@/components/Editor"), { ssr: false });
 
 export default function ContentPathPage() {
@@ -18,16 +17,18 @@ export default function ContentPathPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
     setError("");
     setData(null);
     fetch(`/api/files/${pathParts.map(encodeURIComponent).join("/")}`)
-      .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d); })
+      .then(r => r.json())
+      .then(d => { if (d.error) setError(d.error); else setData(d); })
       .catch(() => setError("Failed to load"))
       .finally(() => setLoading(false));
   }, [subPath]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading) {
     return (
@@ -42,26 +43,14 @@ export default function ContentPathPage() {
   if (data?.type === "dir") {
     const files: FileItem[] = (data.files || []).filter((f: FileItem) => f.name !== ".gitkeep");
     return (
-      <div className="px-8 py-8 max-w-4xl">
+      <div className="px-6 md:px-8 py-8 max-w-5xl">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-zinc-100">{subPath.split("/").pop()}</h1>
+          <p className="text-zinc-500 text-sm mt-1">
+            Drag the <span className="text-zinc-400">⠿</span> handle to move files and folders.
+          </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {files.map((item) => (
-            <Link
-              key={item.path}
-              href={`/content/${item.path}`}
-              className="flex items-center gap-3 p-4 border border-zinc-800 rounded-xl bg-zinc-900 hover:border-red-500/40 hover:bg-zinc-800 transition-all group"
-            >
-              {item.type === "dir"
-                ? <Folder size={18} className="text-amber-400 shrink-0" />
-                : <FileText size={18} className="text-zinc-600 shrink-0" />}
-              <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-100 truncate transition-colors">
-                {item.name.replace(/\.md$/, "")}
-              </span>
-            </Link>
-          ))}
-        </div>
+        <ContentGrid items={files} currentPath={subPath} onRefresh={load} />
       </div>
     );
   }

@@ -60,6 +60,20 @@ export async function deleteFile(subPath: string, sha: string) {
   });
 }
 
+/** Move a file or folder to a new path within content/ */
+export async function moveItem(fromSubPath: string, toSubPath: string): Promise<void> {
+  const result = await getContents(fromSubPath);
+  if (result.type === "file") {
+    await writeFile(toSubPath, result.content); // create at destination
+    await deleteFile(fromSubPath, result.sha);  // remove from source
+  } else {
+    // Recursively move every file inside the directory
+    for (const item of result.files) {
+      await moveItem(item.path, `${toSubPath}/${item.name}`);
+    }
+  }
+}
+
 // Tasks live at data/tasks.json — outside content/ so they don't show in Obsidian
 const TASKS_PATH = "data/tasks.json";
 
