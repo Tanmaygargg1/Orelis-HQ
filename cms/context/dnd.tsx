@@ -40,6 +40,9 @@ export default function DndProvider({ children }: { children: React.ReactNode })
     let newParent: string;
     if (over.id === "__parent__") {
       newParent = String(over.data.current?.parentPath ?? "");
+    } else if (String(over.id).startsWith("__nav__:")) {
+      // Ancestor breadcrumb drop zone — target path is embedded in the ID
+      newParent = String(over.id).slice("__nav__:".length);
     } else {
       if (over.data.current?.itemType !== "dir") return;
       newParent = String(over.id);

@@ -5,13 +5,14 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import {
   Folder, FileText, GripVertical, ArrowUp, MoreHorizontal,
   Building2, Megaphone, BarChart3, Layers, Users, Lightbulb,
-  Pencil, Trash2, FilePlus, FolderPlus,
+  Pencil, Trash2, FilePlus, FolderPlus, FolderInput,
 } from "lucide-react";
 import clsx from "clsx";
 import type { FileItem } from "@/lib/types";
 import { broadcastRefresh } from "@/lib/refresh";
 import DeleteModal from "@/components/DeleteModal";
 import NewItemModal from "@/components/NewItemModal";
+import MoveToModal from "@/components/MoveToModal";
 
 const SECTOR: Record<string, { border: string; icon: React.ElementType; iconColor: string }> = {
   "Business Information": { border: "border-red-500/30 bg-red-500/5 hover:border-red-500/50",       icon: Building2, iconColor: "text-red-400"     },
@@ -30,6 +31,7 @@ function ItemCard({ item }: { item: FileItem }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [newModal, setNewModal] = useState<"file" | "folder" | null>(null);
+  const [moveToOpen, setMoveToOpen] = useState(false);
   const renameRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const renameSubmitted = useRef(false);
@@ -118,6 +120,7 @@ function ItemCard({ item }: { item: FileItem }) {
           onClose={() => setNewModal(null)}
         />
       )}
+      {moveToOpen && <MoveToModal item={item} onClose={() => setMoveToOpen(false)} />}
 
       <div
         ref={setRef}
@@ -148,6 +151,12 @@ function ItemCard({ item }: { item: FileItem }) {
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
               >
                 <Pencil size={12} /> Rename
+              </button>
+              <button
+                onClick={(e) => { e.preventDefault(); setMenuOpen(false); setMoveToOpen(true); }}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+              >
+                <FolderInput size={12} /> Move to…
               </button>
               {item.type === "dir" && (
                 <>
@@ -229,21 +238,38 @@ function ItemCard({ item }: { item: FileItem }) {
   );
 }
 
-function ParentZone({ show, parentPath }: { show: boolean; parentPath: string }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: "__parent__",
-    data: { parentPath, itemType: "dir" },
-  });
-  if (!show) return null;
+function AncestorZone({ targetPath, label }: { targetPath: string; label: string }) {
+  const id = `__nav__:${targetPath}`;
+  const { setNodeRef, isOver } = useDroppable({ id, data: { itemType: "dir" } });
   return (
     <div
       ref={setNodeRef}
       className={clsx(
-        "flex items-center gap-2 px-4 py-3 mb-4 rounded-xl border border-dashed text-sm transition-colors",
-        isOver ? "border-red-500 bg-red-500/10 text-red-400" : "border-zinc-700 text-zinc-600",
+        "flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed text-sm transition-colors",
+        isOver ? "border-red-500 bg-red-500/10 text-red-400" : "border-zinc-700/60 text-zinc-600 hover:border-zinc-600 hover:text-zinc-500",
       )}
     >
-      <ArrowUp size={14} /> Drop here to move to parent folder
+      <ArrowUp size={13} />
+      <span>Move to <span className="font-medium">{label}</span></span>
+    </div>
+  );
+}
+
+function AncestorZones({ currentPath }: { currentPath: string }) {
+  if (!currentPath) return null;
+  const parts = currentPath.split("/");
+  // Build list of all ancestor paths from immediate parent up to root
+  const zones: { targetPath: string; label: string }[] = [];
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const targetPath = parts.slice(0, i).join("/");
+    const label = i === 0 ? "Root" : parts[i - 1];
+    zones.push({ targetPath, label });
+  }
+  return (
+    <div className="flex flex-col gap-1.5 mb-4">
+      {zones.map(z => (
+        <AncestorZone key={z.targetPath || "__root__"} targetPath={z.targetPath} label={z.label} />
+      ))}
     </div>
   );
 }
@@ -254,13 +280,9 @@ interface Props {
 }
 
 export default function ContentGrid({ items, currentPath = "" }: Props) {
-  const parentPath = currentPath
-    ? currentPath.includes("/") ? currentPath.slice(0, currentPath.lastIndexOf("/")) : ""
-    : null;
-
   return (
     <div className="relative">
-      <ParentZone show={parentPath !== null} parentPath={parentPath ?? ""} />
+      <AncestorZones currentPath={currentPath} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {items.map(item => (
           <ItemCard key={item.path} item={item} />

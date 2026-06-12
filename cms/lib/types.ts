@@ -22,7 +22,8 @@ export interface Task {
   description?: string;
   status: TaskStatus;
   assignee?: string;
-  dueDate?: string;
+  startDate?: string;
+  dueDate?: string;   // used as end date when startDate is also set
   createdAt: string;
   updatedAt: string;
 }
