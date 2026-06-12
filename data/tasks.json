@@ -1,3 +1,14 @@
 {
-  "tasks": []
+  "tasks": [
+    {
+      "title": "Research on equity for FSE",
+      "description": "",
+      "assignee": "Abhidyu",
+      "dueDate": "2026-06-12",
+      "status": "todo",
+      "id": "eff18ccf-02aa-43a2-b845-62c979ff26e3",
+      "createdAt": "2026-06-12T04:12:31.583Z",
+      "updatedAt": "2026-06-12T04:12:31.583Z"
+    }
+  ]
 }
