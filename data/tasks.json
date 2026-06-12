@@ -9,6 +9,16 @@
       "id": "eff18ccf-02aa-43a2-b845-62c979ff26e3",
       "createdAt": "2026-06-12T04:12:31.583Z",
       "updatedAt": "2026-06-12T04:12:31.583Z"
+    },
+    {
+      "title": "Marketing Plan",
+      "description": "",
+      "assignee": "Abhidyu",
+      "dueDate": "2026-06-14",
+      "status": "todo",
+      "id": "cda82585-6f4b-4035-819b-0b1281264a5e",
+      "createdAt": "2026-06-12T04:18:10.924Z",
+      "updatedAt": "2026-06-12T04:18:10.924Z"
     }
   ]
 }
