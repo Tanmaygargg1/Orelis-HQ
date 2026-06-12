@@ -1,11 +1,15 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
+import {
+  DndContext, DragOverlay, useDraggable, useDroppable,
+  PointerSensor, TouchSensor, useSensor, useSensors,
+  type DragEndEvent, type DragStartEvent,
+} from "@dnd-kit/core";
 import {
   Folder, FileText, GripVertical, ArrowUp, MoreHorizontal,
   Building2, Megaphone, BarChart3, Layers, Users, Lightbulb,
-  Pencil, Trash2, FilePlus, FolderPlus, FolderInput,
+  Pencil, Trash2, FilePlus, FolderPlus, FolderInput, Loader2,
 } from "lucide-react";
 import clsx from "clsx";
 import type { FileItem } from "@/lib/types";
@@ -22,6 +26,8 @@ const SECTOR: Record<string, { border: string; icon: React.ElementType; iconColo
   "Team":                 { border: "border-purple-500/30 bg-purple-500/5 hover:border-purple-500/50", icon: Users,  iconColor: "text-purple-400"  },
   "Ideas":                { border: "border-zinc-500/30 bg-zinc-500/5 hover:border-zinc-500/50",    icon: Lightbulb, iconColor: "text-zinc-400"    },
 };
+
+// ── Item card ────────────────────────────────────────────────────────────────
 
 function ItemCard({ item }: { item: FileItem }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,7 +51,6 @@ function ItemCard({ item }: { item: FileItem }) {
     data: { itemType: item.type },
     disabled: item.type !== "dir",
   });
-
   const setRef = (el: HTMLDivElement | null) => {
     setDragRef(el);
     if (item.type === "dir") setDropRef(el);
@@ -55,14 +60,11 @@ function ItemCard({ item }: { item: FileItem }) {
   const FolderIcon = sector?.icon ?? Folder;
 
   useEffect(() => { if (renaming) renameRef.current?.focus(); }, [renaming]);
-
   useEffect(() => {
     if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const h = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, [menuOpen]);
 
   function startRename() {
@@ -76,11 +78,10 @@ function ItemCard({ item }: { item: FileItem }) {
     renameSubmitted.current = true;
     setRenaming(false);
     const newName = renameVal.trim();
-    const currentName = item.name.replace(/\.md$/, "");
-    if (!newName || newName === currentName) return;
+    if (!newName || newName === item.name.replace(/\.md$/, "")) return;
     const ext = item.type === "file" ? ".md" : "";
-    const parentPath = item.path.includes("/") ? item.path.slice(0, item.path.lastIndexOf("/")) : "";
-    const newPath = parentPath ? `${parentPath}/${newName}${ext}` : `${newName}${ext}`;
+    const parent = item.path.includes("/") ? item.path.slice(0, item.path.lastIndexOf("/")) : "";
+    const newPath = parent ? `${parent}/${newName}${ext}` : `${newName}${ext}`;
     setRenameLoading(true);
     const res = await fetch(
       `/api/files/${item.path.split("/").map(encodeURIComponent).join("/")}`,
@@ -105,21 +106,10 @@ function ItemCard({ item }: { item: FileItem }) {
   return (
     <>
       {confirmDelete && (
-        <DeleteModal
-          name={item.name.replace(/\.md$/, "")}
-          isFolder={item.type === "dir"}
-          loading={deleteLoading}
-          onConfirm={doDelete}
-          onCancel={() => setConfirmDelete(false)}
-        />
+        <DeleteModal name={item.name.replace(/\.md$/, "")} isFolder={item.type === "dir"}
+          loading={deleteLoading} onConfirm={doDelete} onCancel={() => setConfirmDelete(false)} />
       )}
-      {newModal && (
-        <NewItemModal
-          type={newModal}
-          parentPath={item.path}
-          onClose={() => setNewModal(null)}
-        />
-      )}
+      {newModal && <NewItemModal type={newModal} parentPath={item.path} onClose={() => setNewModal(null)} />}
       {moveToOpen && <MoveToModal item={item} onClose={() => setMoveToOpen(false)} />}
 
       <div
@@ -131,95 +121,80 @@ function ItemCard({ item }: { item: FileItem }) {
           isDragging && "opacity-25 pointer-events-none",
         )}
       >
-        {/* Drop ring on hovered folder */}
+        {/* Drop ring on folders being hovered */}
         {isOver && item.type === "dir" && (
           <div className="absolute inset-0 rounded-xl ring-2 ring-red-500 ring-offset-2 ring-offset-zinc-950 pointer-events-none z-10" />
         )}
 
-        {/* Three-dot menu */}
-        <div ref={menuRef} className="absolute right-8 top-1/2 -translate-y-1/2 z-20">
+        {/* Drag handle indicator */}
+        <div className="absolute right-9 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-zinc-600 z-20 pointer-events-none">
+          <GripVertical size={14} />
+        </div>
+
+        {/* Three-dot context menu */}
+        <div ref={menuRef} className="absolute right-2 top-1/2 -translate-y-1/2 z-20">
           <button
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(v => !v); }}
             className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-zinc-700/50 rounded transition-all"
           >
             <MoreHorizontal size={13} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-40 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-30 py-1">
-              <button
+            <div className="absolute right-0 top-full mt-1 w-44 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-30 py-1">
+              <button onPointerDown={e => e.stopPropagation()}
                 onClick={(e) => { e.preventDefault(); setMenuOpen(false); startRename(); }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-              >
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
                 <Pencil size={12} /> Rename
               </button>
-              <button
+              <button onPointerDown={e => e.stopPropagation()}
                 onClick={(e) => { e.preventDefault(); setMenuOpen(false); setMoveToOpen(true); }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-              >
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
                 <FolderInput size={12} /> Move to…
               </button>
-              {item.type === "dir" && (
-                <>
-                  <button
-                    onClick={(e) => { e.preventDefault(); setMenuOpen(false); setNewModal("file"); }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-                  >
-                    <FilePlus size={12} /> New file here
-                  </button>
-                  <button
-                    onClick={(e) => { e.preventDefault(); setMenuOpen(false); setNewModal("folder"); }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-                  >
-                    <FolderPlus size={12} /> New folder here
-                  </button>
-                </>
-              )}
+              {item.type === "dir" && (<>
+                <button onPointerDown={e => e.stopPropagation()}
+                  onClick={(e) => { e.preventDefault(); setMenuOpen(false); setNewModal("file"); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+                  <FilePlus size={12} /> New file here
+                </button>
+                <button onPointerDown={e => e.stopPropagation()}
+                  onClick={(e) => { e.preventDefault(); setMenuOpen(false); setNewModal("folder"); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+                  <FolderPlus size={12} /> New folder here
+                </button>
+              </>)}
               <div className="border-t border-zinc-800 my-1" />
-              <button
+              <button onPointerDown={e => e.stopPropagation()}
                 onClick={(e) => { e.preventDefault(); setMenuOpen(false); setConfirmDelete(true); }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 transition-colors"
-              >
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-zinc-800">
                 <Trash2 size={12} /> Delete
               </button>
             </div>
           )}
         </div>
 
-        {/* Drag handle — visual indicator only, listeners are on the outer div */}
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-zinc-600 z-20 pointer-events-none">
-          <GripVertical size={14} />
-        </div>
-
+        {/* Content */}
         {renaming ? (
-          <div className={clsx(
-            "flex items-center gap-3 p-4 pr-8 border rounded-xl",
-            sector ? sector.border : "border-zinc-800 bg-zinc-900",
-          )}>
+          <div className={clsx("flex items-center gap-3 p-4 pr-10 border rounded-xl",
+            sector ? sector.border : "border-zinc-800 bg-zinc-900")}>
             {item.type === "dir"
               ? <FolderIcon size={18} className={clsx("shrink-0", sector?.iconColor ?? "text-amber-400")} />
               : <FileText size={18} className="text-zinc-600 shrink-0" />}
-            <input
-              ref={renameRef}
-              value={renameVal}
-              onChange={e => setRenameVal(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") { e.preventDefault(); submitRename(); }
-                if (e.key === "Escape") { setRenaming(false); }
-              }}
-              onBlur={submitRename}
-              disabled={renameLoading}
-              className="flex-1 bg-transparent text-sm font-medium text-zinc-200 outline-none border-b border-red-500 pb-0.5 min-w-0"
-            />
+            <input ref={renameRef} value={renameVal} onChange={e => setRenameVal(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); submitRename(); } if (e.key === "Escape") setRenaming(false); }}
+              onBlur={submitRename} disabled={renameLoading}
+              className="flex-1 bg-transparent text-sm font-medium text-zinc-200 outline-none border-b border-red-500 pb-0.5 min-w-0" />
           </div>
         ) : (
           <Link
             href={`/content/${item.path}`}
             draggable={false}
             onDoubleClick={(e) => { e.preventDefault(); startRename(); }}
+            onPointerDown={(e) => { /* let drag listeners handle this */ }}
             className={clsx(
-              "flex items-center gap-3 p-4 pr-8 border rounded-xl transition-colors",
-              sector
-                ? sector.border
+              "flex items-center gap-3 p-4 pr-10 border rounded-xl transition-colors",
+              sector ? sector.border
                 : item.type === "dir"
                   ? "border-zinc-800 bg-zinc-900 hover:border-zinc-700"
                   : "border-zinc-800 bg-zinc-900 hover:border-red-500/30 hover:bg-zinc-800",
@@ -238,19 +213,20 @@ function ItemCard({ item }: { item: FileItem }) {
   );
 }
 
+// ── Ancestor drop zones ───────────────────────────────────────────────────────
+
 function AncestorZone({ targetPath, label }: { targetPath: string; label: string }) {
-  const id = `__nav__:${targetPath}`;
-  const { setNodeRef, isOver } = useDroppable({ id, data: { itemType: "dir" } });
+  const { setNodeRef, isOver } = useDroppable({
+    id: `__nav__:${targetPath}`,
+    data: { itemType: "dir" },
+  });
   return (
-    <div
-      ref={setNodeRef}
-      className={clsx(
-        "flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed text-sm transition-colors",
-        isOver ? "border-red-500 bg-red-500/10 text-red-400" : "border-zinc-700/60 text-zinc-600 hover:border-zinc-600 hover:text-zinc-500",
-      )}
-    >
+    <div ref={setNodeRef} className={clsx(
+      "flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed text-sm transition-colors",
+      isOver ? "border-red-500 bg-red-500/10 text-red-400" : "border-zinc-700/60 text-zinc-600",
+    )}>
       <ArrowUp size={13} />
-      <span>Move to <span className="font-medium">{label}</span></span>
+      Move to <span className="font-medium ml-0.5">{label}</span>
     </div>
   );
 }
@@ -258,21 +234,34 @@ function AncestorZone({ targetPath, label }: { targetPath: string; label: string
 function AncestorZones({ currentPath }: { currentPath: string }) {
   if (!currentPath) return null;
   const parts = currentPath.split("/");
-  // Build list of all ancestor paths from immediate parent up to root
   const zones: { targetPath: string; label: string }[] = [];
   for (let i = parts.length - 1; i >= 0; i--) {
     const targetPath = parts.slice(0, i).join("/");
-    const label = i === 0 ? "Root" : parts[i - 1];
-    zones.push({ targetPath, label });
+    zones.push({ targetPath, label: i === 0 ? "Root" : parts[i - 1] });
   }
   return (
     <div className="flex flex-col gap-1.5 mb-4">
-      {zones.map(z => (
-        <AncestorZone key={z.targetPath || "__root__"} targetPath={z.targetPath} label={z.label} />
-      ))}
+      {zones.map(z => <AncestorZone key={z.targetPath || "__root__"} {...z} />)}
     </div>
   );
 }
+
+// ── Drag preview ─────────────────────────────────────────────────────────────
+
+function DragPreview({ item }: { item: FileItem }) {
+  const sector = item.type === "dir" ? SECTOR[item.name] : undefined;
+  const FolderIcon = sector?.icon ?? Folder;
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 border border-zinc-600 rounded-xl bg-zinc-800 shadow-2xl rotate-1 scale-105 opacity-95 pointer-events-none w-52">
+      {item.type === "dir"
+        ? <FolderIcon size={16} className={clsx("shrink-0", sector?.iconColor ?? "text-amber-400")} />
+        : <FileText size={16} className="text-zinc-400 shrink-0" />}
+      <span className="text-sm font-medium text-zinc-100 truncate">{item.name.replace(/\.md$/, "")}</span>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
   items: FileItem[];
@@ -280,14 +269,84 @@ interface Props {
 }
 
 export default function ContentGrid({ items, currentPath = "" }: Props) {
+  const [activeItem, setActiveItem] = useState<FileItem | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
+
+  function handleDragStart({ active }: DragStartEvent) {
+    setActiveItem(items.find(i => i.path === String(active.id)) ?? null);
+    setMoveError("");
+  }
+
+  async function handleDragEnd({ active, over }: DragEndEvent) {
+    setActiveItem(null);
+    if (!over || active.id === over.id) return;
+
+    const fromPath = String(active.id);
+    const overId = String(over.id);
+    const draggedName = fromPath.split("/").pop()!;
+
+    let newParent: string;
+    if (overId.startsWith("__nav__:")) {
+      newParent = overId.slice("__nav__:".length);
+    } else {
+      if (over.data.current?.itemType !== "dir") return;
+      if (overId === fromPath || overId.startsWith(fromPath + "/")) return;
+      newParent = overId;
+    }
+
+    const newPath = newParent ? `${newParent}/${draggedName}` : draggedName;
+    if (newPath === fromPath) return;
+
+    setMoving(true);
+    try {
+      const res = await fetch(
+        `/api/files/${fromPath.split("/").map(encodeURIComponent).join("/")}`,
+        { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPath }) },
+      );
+      const data = await res.json();
+      if (data.error) {
+        setMoveError(data.error);
+        setTimeout(() => setMoveError(""), 4000);
+      } else {
+        broadcastRefresh();
+      }
+    } catch {
+      setMoveError("Move failed — check connection");
+      setTimeout(() => setMoveError(""), 4000);
+    } finally {
+      setMoving(false);
+    }
+  }
+
   return (
-    <div className="relative">
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      {/* Toast indicators */}
+      {moving && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-zinc-300 text-sm shadow-2xl pointer-events-none">
+          <Loader2 size={14} className="animate-spin text-red-400" /> Moving…
+        </div>
+      )}
+      {moveError && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 bg-zinc-900 border border-red-500/50 rounded-lg px-4 py-2.5 text-red-400 text-sm shadow-2xl">
+          {moveError}
+        </div>
+      )}
+
       <AncestorZones currentPath={currentPath} />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {items.map(item => (
-          <ItemCard key={item.path} item={item} />
-        ))}
+        {items.map(item => <ItemCard key={item.path} item={item} />)}
       </div>
-    </div>
+
+      <DragOverlay dropAnimation={null}>
+        {activeItem && <DragPreview item={activeItem} />}
+      </DragOverlay>
+    </DndContext>
   );
 }

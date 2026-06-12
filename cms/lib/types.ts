@@ -23,7 +23,19 @@ export interface Task {
   status: TaskStatus;
   assignee?: string;
   startDate?: string;
-  dueDate?: string;   // used as end date when startDate is also set
+  dueDate?: string;   // single date, or end date when startDate is also set
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Meeting {
+  id: string;
+  title: string;
+  date: string;         // ISO date YYYY-MM-DD
+  time?: string;        // HH:MM (24h)
+  duration?: number;    // minutes
+  attendees?: string;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }

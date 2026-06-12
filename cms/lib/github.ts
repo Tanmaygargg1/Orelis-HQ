@@ -1,5 +1,5 @@
 import { Octokit } from "@octokit/rest";
-import type { FileItem, Task } from "./types";
+import type { FileItem, Task, Meeting } from "./types";
 
 const getClient = () => new Octokit({ auth: process.env.GITHUB_TOKEN });
 const owner = () => process.env.GITHUB_OWNER!;
@@ -110,6 +110,28 @@ export async function saveTasks(tasks: Task[], sha?: string) {
     owner: owner(), repo: repo(), path: TASKS_PATH,
     message: "Update tasks",
     content: Buffer.from(JSON.stringify({ tasks }, null, 2)).toString("base64"),
+    sha,
+  });
+}
+
+const MEETINGS_PATH = "data/meetings.json";
+
+export async function getMeetings(): Promise<{ meetings: Meeting[]; sha?: string }> {
+  try {
+    const { data } = await getClient().repos.getContent({ owner: owner(), repo: repo(), path: MEETINGS_PATH });
+    if (Array.isArray(data) || data.type !== "file") return { meetings: [] };
+    const parsed = JSON.parse(Buffer.from(data.content, "base64").toString("utf-8"));
+    return { meetings: parsed.meetings || [], sha: data.sha };
+  } catch {
+    return { meetings: [], sha: undefined };
+  }
+}
+
+export async function saveMeetings(meetings: Meeting[], sha?: string) {
+  await getClient().repos.createOrUpdateFileContents({
+    owner: owner(), repo: repo(), path: MEETINGS_PATH,
+    message: "Update meetings",
+    content: Buffer.from(JSON.stringify({ meetings }, null, 2)).toString("base64"),
     sha,
   });
 }

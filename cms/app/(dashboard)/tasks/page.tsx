@@ -131,6 +131,7 @@ export default function TasksPage() {
   const [title, setTitle]           = useState("");
   const [description, setDescription] = useState("");
   const [assignee, setAssignee]     = useState("");
+  const [dateMode, setDateMode]     = useState<"single" | "range">("single");
   const [startDate, setStartDate]   = useState("");
   const [dueDate, setDueDate]       = useState("");
   const [saving, setSaving]         = useState(false);
@@ -168,7 +169,7 @@ export default function TasksPage() {
     });
     setSaving(false);
     await loadTasks();
-    setTitle(""); setDescription(""); setAssignee(""); setStartDate(""); setDueDate("");
+    setTitle(""); setDescription(""); setAssignee(""); setStartDate(""); setDueDate(""); setDateMode("single");
     setShowModal(false);
   }
 
@@ -306,15 +307,34 @@ export default function TasksPage() {
                 <label className="block text-sm text-zinc-400 mb-1.5">Assignee</label>
                 <input type="text" value={assignee} onChange={e => setAssignee(e.target.value)} placeholder="Name" className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-1.5">Start date</label>
-                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
+              {/* Date mode toggle */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm text-zinc-400">Date</label>
+                  <div className="flex bg-zinc-800 rounded-lg p-0.5 gap-0.5">
+                    {(["single","range"] as const).map(m => (
+                      <button key={m} type="button" onClick={() => setDateMode(m)}
+                        className={clsx("px-2.5 py-1 text-xs rounded-md transition-colors",
+                          dateMode === m ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300")}>
+                        {m === "single" ? "Single" : "Duration"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-1.5">End date</label>
+                {dateMode === "single" ? (
                   <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputCls} />
-                </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-zinc-600 mb-1">Start</p>
+                      <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-600 mb-1">End</p>
+                      <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2 justify-end pt-1">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-300">Cancel</button>
