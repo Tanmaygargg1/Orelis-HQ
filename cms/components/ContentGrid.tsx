@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DndContext, DragOverlay, useDraggable, useDroppable,
   PointerSensor, TouchSensor, useSensor, useSensors,
@@ -30,6 +30,7 @@ const SECTOR: Record<string, { border: string; icon: React.ElementType; iconColo
 // ── Item card ────────────────────────────────────────────────────────────────
 
 function ItemCard({ item }: { item: FileItem }) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(item.name.replace(/\.md$/, ""));
@@ -42,7 +43,7 @@ function ItemCard({ item }: { item: FileItem }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const renameSubmitted = useRef(false);
 
-  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+  const { listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: item.path,
     data: { name: item.name, itemType: item.type },
   });
@@ -115,9 +116,8 @@ function ItemCard({ item }: { item: FileItem }) {
       <div
         ref={setRef}
         {...listeners}
-        {...attributes}
         className={clsx(
-          "relative group touch-none select-none cursor-grab active:cursor-grabbing",
+          "relative group touch-none select-none",
           isDragging && "opacity-25 pointer-events-none",
         )}
       >
@@ -187,13 +187,11 @@ function ItemCard({ item }: { item: FileItem }) {
               className="flex-1 bg-transparent text-sm font-medium text-zinc-200 outline-none border-b border-red-500 pb-0.5 min-w-0" />
           </div>
         ) : (
-          <Link
-            href={`/content/${item.path}`}
-            draggable={false}
-            onDoubleClick={(e) => { e.preventDefault(); startRename(); }}
-            onPointerDown={(e) => { /* let drag listeners handle this */ }}
+          <div
+            onClick={() => router.push(`/content/${item.path}`)}
+            onDoubleClick={(e) => { e.stopPropagation(); startRename(); }}
             className={clsx(
-              "flex items-center gap-3 p-4 pr-10 border rounded-xl transition-colors",
+              "flex items-center gap-3 p-4 pr-10 border rounded-xl transition-colors cursor-pointer",
               sector ? sector.border
                 : item.type === "dir"
                   ? "border-zinc-800 bg-zinc-900 hover:border-zinc-700"
@@ -206,7 +204,7 @@ function ItemCard({ item }: { item: FileItem }) {
             <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-100 truncate transition-colors">
               {item.name.replace(/\.md$/, "")}
             </span>
-          </Link>
+          </div>
         )}
       </div>
     </>
