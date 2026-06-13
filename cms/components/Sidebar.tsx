@@ -7,6 +7,7 @@ import {
   FileText, CheckSquare, ChevronRight, ChevronDown,
   Folder, FolderOpen, FilePlus, FolderPlus, LogOut, File, X,
   MoreHorizontal, Pencil, Trash2, FolderInput, CalendarDays, Video,
+  GripVertical,
 } from "lucide-react";
 import clsx from "clsx";
 import type { FileItem } from "@/lib/types";
@@ -30,6 +31,7 @@ function FileNode({
 }) {
   const [open,       setOpen]       = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const dragCount = useRef(0);
   const [children, setChildren] = useState<FileItem[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -168,16 +170,6 @@ function FileNode({
     </div>
   );
 
-  // ── HTML5 drag source (non-root items only) ──
-  function handleDragStart(e: React.DragEvent) {
-    if (isRoot) { e.preventDefault(); return; } // root folders are protected
-    e.dataTransfer.setData("application/x-orelis", item.path);
-    e.dataTransfer.effectAllowed = "move";
-    (e.currentTarget as HTMLElement).style.opacity = "0.4";
-  }
-  function handleDragEnd(e: React.DragEvent) {
-    (e.currentTarget as HTMLElement).style.opacity = "1";
-  }
   // ── HTML5 drop target (all folders) ──
   function handleDragEnter(e: React.DragEvent) {
     e.preventDefault(); dragCount.current++; setIsDragOver(true);
@@ -195,19 +187,39 @@ function FileNode({
     if (from) await moveItem(from, item.path);
   }
 
+  // Grip handle element (only THIS is draggable — not the whole row)
+  const gripHandle = !isRoot ? (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.stopPropagation();
+        e.dataTransfer.setData("application/x-orelis", item.path);
+        e.dataTransfer.effectAllowed = "move";
+        setIsDragging(true);
+      }}
+      onDragEnd={() => setIsDragging(false)}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 text-zinc-600 hover:text-zinc-400 z-30"
+      title="Drag to move"
+    >
+      <GripVertical size={11} />
+    </div>
+  ) : null;
+
   if (item.type === "dir") {
     return (
       <div
-        draggable={!isRoot}
-        onDragStart={handleDragStart} onDragEnd={handleDragEnd}
+        className={clsx(
+          isDragOver && "bg-red-500/10 rounded-md ring-1 ring-red-500/40",
+          isDragging && "opacity-40",
+        )}
         onDragEnter={handleDragEnter} onDragOver={handleDragOver}
         onDragLeave={handleDragLeave} onDrop={handleDrop}
-        className={clsx(isDragOver && "bg-red-500/10 rounded-md")}
       >
         {confirmDelete && <DeleteModal name={item.name} isFolder loading={deleteLoading} onConfirm={doDelete} onCancel={() => setConfirmDelete(false)} />}
         {newModal && <NewItemModal type={newModal} parentPath={item.path} onClose={() => setNewModal(null)} />}
         {moveToOpen && <MoveToModal item={item} onClose={() => setMoveToOpen(false)} />}
-        <div className="relative">
+        <div className="relative group/row">
           {renaming ? renameInput : (
             <button onClick={toggle} style={{ paddingLeft: `${12 + indent}px` }} className={clsx(rowCls, isDragOver && "text-red-300")}>
               {open ? <ChevronDown size={12} className="shrink-0 text-zinc-600" /> : <ChevronRight size={12} className="shrink-0 text-zinc-600" />}
@@ -215,6 +227,7 @@ function FileNode({
               <span className="truncate">{item.name}</span>
             </button>
           )}
+          {gripHandle}
           {contextMenu}
         </div>
         {open && children.length > 0 && (
@@ -225,12 +238,7 @@ function FileNode({
   }
 
   return (
-    <div
-      className="relative"
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
+    <div className={clsx("relative group/row", isDragging && "opacity-40")}>
       {confirmDelete && <DeleteModal name={item.name.replace(/\.md$/, "")} loading={deleteLoading} onConfirm={doDelete} onCancel={() => setConfirmDelete(false)} />}
       {moveToOpen && <MoveToModal item={item} onClose={() => setMoveToOpen(false)} />}
       {renaming ? renameInput : (
@@ -240,6 +248,7 @@ function FileNode({
           <span className="truncate">{item.name.replace(/\.md$/, "")}</span>
         </Link>
       )}
+      {gripHandle}
       {contextMenu}
     </div>
   );
