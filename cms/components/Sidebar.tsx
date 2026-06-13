@@ -15,6 +15,7 @@ import DeleteModal from "./DeleteModal";
 import MoveToModal from "./MoveToModal";
 import { useSidebar } from "@/context/sidebar";
 import { broadcastRefresh, useRefreshListener } from "@/lib/refresh";
+import { moveItem } from "@/components/ContentGrid";
 
 function FileNode({
   item,
@@ -27,7 +28,9 @@ function FileNode({
   onNavigate?: () => void;
   isRoot?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open,       setOpen]       = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCount = useRef(0);
   const [children, setChildren] = useState<FileItem[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -165,17 +168,50 @@ function FileNode({
     </div>
   );
 
+  // ── HTML5 drag source (non-root items only) ──
+  function handleDragStart(e: React.DragEvent) {
+    if (isRoot) { e.preventDefault(); return; } // root folders are protected
+    e.dataTransfer.setData("application/x-orelis", item.path);
+    e.dataTransfer.effectAllowed = "move";
+    (e.currentTarget as HTMLElement).style.opacity = "0.4";
+  }
+  function handleDragEnd(e: React.DragEvent) {
+    (e.currentTarget as HTMLElement).style.opacity = "1";
+  }
+  // ── HTML5 drop target (all folders) ──
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault(); dragCount.current++; setIsDragOver(true);
+  }
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "move";
+  }
+  function handleDragLeave() {
+    dragCount.current--; if (dragCount.current <= 0) { dragCount.current = 0; setIsDragOver(false); }
+  }
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault(); e.stopPropagation();
+    dragCount.current = 0; setIsDragOver(false);
+    const from = e.dataTransfer.getData("application/x-orelis");
+    if (from) await moveItem(from, item.path);
+  }
+
   if (item.type === "dir") {
     return (
-      <div>
+      <div
+        draggable={!isRoot}
+        onDragStart={handleDragStart} onDragEnd={handleDragEnd}
+        onDragEnter={handleDragEnter} onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave} onDrop={handleDrop}
+        className={clsx(isDragOver && "bg-red-500/10 rounded-md")}
+      >
         {confirmDelete && <DeleteModal name={item.name} isFolder loading={deleteLoading} onConfirm={doDelete} onCancel={() => setConfirmDelete(false)} />}
         {newModal && <NewItemModal type={newModal} parentPath={item.path} onClose={() => setNewModal(null)} />}
         {moveToOpen && <MoveToModal item={item} onClose={() => setMoveToOpen(false)} />}
         <div className="relative">
           {renaming ? renameInput : (
-            <button onClick={toggle} style={{ paddingLeft: `${12 + indent}px` }} className={rowCls}>
+            <button onClick={toggle} style={{ paddingLeft: `${12 + indent}px` }} className={clsx(rowCls, isDragOver && "text-red-300")}>
               {open ? <ChevronDown size={12} className="shrink-0 text-zinc-600" /> : <ChevronRight size={12} className="shrink-0 text-zinc-600" />}
-              {open ? <FolderOpen size={14} className="shrink-0 text-amber-400" /> : <Folder size={14} className="shrink-0 text-amber-400" />}
+              {open ? <FolderOpen size={14} className={clsx("shrink-0", isDragOver ? "text-red-400" : "text-amber-400")} /> : <Folder size={14} className={clsx("shrink-0", isDragOver ? "text-red-400" : "text-amber-400")} />}
               <span className="truncate">{item.name}</span>
             </button>
           )}
@@ -189,7 +225,12 @@ function FileNode({
   }
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       {confirmDelete && <DeleteModal name={item.name.replace(/\.md$/, "")} loading={deleteLoading} onConfirm={doDelete} onCancel={() => setConfirmDelete(false)} />}
       {moveToOpen && <MoveToModal item={item} onClose={() => setMoveToOpen(false)} />}
       {renaming ? renameInput : (

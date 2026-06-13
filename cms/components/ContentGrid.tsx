@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   Folder, FileText, MoreHorizontal, Building2, Megaphone,
   BarChart3, Layers, Users, Lightbulb, Pencil, Trash2,
-  FilePlus, FolderPlus, FolderInput,
+  FilePlus, FolderPlus, FolderInput, ArrowUp, Loader2,
 } from "lucide-react";
 import clsx from "clsx";
 import type { FileItem } from "@/lib/types";
@@ -13,17 +13,46 @@ import DeleteModal from "@/components/DeleteModal";
 import NewItemModal from "@/components/NewItemModal";
 import MoveToModal from "@/components/MoveToModal";
 
-const SECTOR: Record<string, { border: string; icon: React.ElementType; iconColor: string }> = {
-  "Business Information": { border: "border-red-500/30 bg-red-500/5 hover:border-red-500/50",            icon: Building2, iconColor: "text-red-400"     },
-  "Marketing":            { border: "border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50",      icon: Megaphone, iconColor: "text-amber-400"   },
-  "Finance":              { border: "border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/50",icon: BarChart3, iconColor: "text-emerald-400" },
-  "Product":              { border: "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50",         icon: Layers,    iconColor: "text-blue-400"    },
-  "Team":                 { border: "border-purple-500/30 bg-purple-500/5 hover:border-purple-500/50",   icon: Users,     iconColor: "text-purple-400"  },
-  "Ideas":                { border: "border-zinc-500/30 bg-zinc-500/5 hover:border-zinc-500/50",         icon: Lightbulb, iconColor: "text-zinc-400"    },
+const SECTOR: Record<string, { border: string; dropBorder: string; icon: React.ElementType; iconColor: string }> = {
+  "Business Information": { border: "border-red-500/30 bg-red-500/5 hover:border-red-500/50",            dropBorder: "ring-red-500",    icon: Building2, iconColor: "text-red-400"     },
+  "Marketing":            { border: "border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50",      dropBorder: "ring-amber-500",  icon: Megaphone, iconColor: "text-amber-400"   },
+  "Finance":              { border: "border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/50",dropBorder: "ring-emerald-500",icon: BarChart3, iconColor: "text-emerald-400" },
+  "Product":              { border: "border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50",         dropBorder: "ring-blue-500",   icon: Layers,    iconColor: "text-blue-400"    },
+  "Team":                 { border: "border-purple-500/30 bg-purple-500/5 hover:border-purple-500/50",   dropBorder: "ring-purple-500", icon: Users,     iconColor: "text-purple-400"  },
+  "Ideas":                { border: "border-zinc-500/30 bg-zinc-500/5 hover:border-zinc-500/50",         dropBorder: "ring-zinc-400",   icon: Lightbulb, iconColor: "text-zinc-400"    },
 };
 
-function ItemCard({ item }: { item: FileItem }) {
+// ── Shared move helper ────────────────────────────────────────────────────────
+
+export async function moveItem(fromPath: string, toParentPath: string): Promise<string | null> {
+  const name = fromPath.split("/").pop()!;
+  // Prevent moving into itself
+  if (toParentPath === fromPath || toParentPath.startsWith(fromPath + "/")) return "Cannot move a folder into itself";
+  const newPath = toParentPath ? `${toParentPath}/${name}` : name;
+  if (newPath === fromPath) return null; // already there
+  const res = await fetch(
+    `/api/files/${fromPath.split("/").map(encodeURIComponent).join("/")}`,
+    { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPath }) },
+  );
+  const data = await res.json();
+  if (data.error) return data.error;
+  broadcastRefresh();
+  return null;
+}
+
+// ── Item card ─────────────────────────────────────────────────────────────────
+
+function ItemCard({
+  item,
+  onMoveStart,
+  onMoveDone,
+}: {
+  item: FileItem;
+  onMoveStart: () => void;
+  onMoveDone: (err: string | null) => void;
+}) {
   const router = useRouter();
+  const [isDragOver,    setIsDragOver]    = useState(false);
   const [menuOpen,      setMenuOpen]      = useState(false);
   const [renaming,      setRenaming]      = useState(false);
   const [renameVal,     setRenameVal]     = useState(item.name.replace(/\.md$/, ""));
@@ -32,11 +61,12 @@ function ItemCard({ item }: { item: FileItem }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [newModal,      setNewModal]      = useState<"file" | "folder" | null>(null);
   const [moveToOpen,    setMoveToOpen]    = useState(false);
-  const renameRef      = useRef<HTMLInputElement>(null);
-  const menuRef        = useRef<HTMLDivElement>(null);
+  const renameRef       = useRef<HTMLInputElement>(null);
+  const menuRef         = useRef<HTMLDivElement>(null);
   const renameSubmitted = useRef(false);
+  const dragEnterCount  = useRef(0); // prevent flicker on drag over children
 
-  const sector    = item.type === "dir" ? SECTOR[item.name] : undefined;
+  const sector     = item.type === "dir" ? SECTOR[item.name] : undefined;
   const FolderIcon = sector?.icon ?? Folder;
 
   useEffect(() => { if (renaming) renameRef.current?.focus(); }, [renaming]);
@@ -52,7 +82,6 @@ function ItemCard({ item }: { item: FileItem }) {
     setRenameVal(item.name.replace(/\.md$/, ""));
     setRenaming(true);
   }
-
   async function submitRename() {
     if (renameSubmitted.current) return;
     renameSubmitted.current = true;
@@ -70,7 +99,6 @@ function ItemCard({ item }: { item: FileItem }) {
     setRenameLoading(false);
     if (!(await res.json()).error) broadcastRefresh();
   }
-
   async function doDelete() {
     setDeleteLoading(true);
     const body = item.type === "file" ? JSON.stringify({ sha: item.sha }) : "{}";
@@ -83,12 +111,56 @@ function ItemCard({ item }: { item: FileItem }) {
     if (!(await res.json()).error) broadcastRefresh();
   }
 
+  // ── HTML5 drag source ──
+  function handleDragStart(e: React.DragEvent) {
+    e.dataTransfer.setData("application/x-orelis", item.path);
+    e.dataTransfer.effectAllowed = "move";
+    (e.currentTarget as HTMLElement).style.opacity = "0.4";
+  }
+  function handleDragEnd(e: React.DragEvent) {
+    (e.currentTarget as HTMLElement).style.opacity = "1";
+  }
+
+  // ── HTML5 drop target (folders only) ──
+  function handleDragEnter(e: React.DragEvent) {
+    if (item.type !== "dir") return;
+    e.preventDefault();
+    dragEnterCount.current++;
+    setIsDragOver(true);
+  }
+  function handleDragOver(e: React.DragEvent) {
+    if (item.type !== "dir") return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+  }
+  function handleDragLeave() {
+    if (item.type !== "dir") return;
+    dragEnterCount.current--;
+    if (dragEnterCount.current <= 0) { dragEnterCount.current = 0; setIsDragOver(false); }
+  }
+  async function handleDrop(e: React.DragEvent) {
+    if (item.type !== "dir") return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragEnterCount.current = 0;
+    setIsDragOver(false);
+    const fromPath = e.dataTransfer.getData("application/x-orelis");
+    if (!fromPath) return;
+    onMoveStart();
+    const err = await moveItem(fromPath, item.path);
+    onMoveDone(err);
+  }
+
   const cardClass = clsx(
-    "flex items-center gap-3 p-4 pr-10 border rounded-xl transition-colors cursor-pointer select-none",
-    sector ? sector.border
-      : item.type === "dir"
-        ? "border-zinc-800 bg-zinc-900 hover:border-zinc-700"
-        : "border-zinc-800 bg-zinc-900 hover:border-red-500/30 hover:bg-zinc-800",
+    "flex items-center gap-3 p-4 pr-10 border rounded-xl transition-all cursor-pointer select-none",
+    isDragOver && item.type === "dir"
+      ? "ring-2 ring-red-500 ring-offset-2 ring-offset-zinc-950 scale-[1.02]"
+      : sector
+        ? sector.border
+        : item.type === "dir"
+          ? "border-zinc-800 bg-zinc-900 hover:border-zinc-700"
+          : "border-zinc-800 bg-zinc-900 hover:border-red-500/30 hover:bg-zinc-800",
   );
 
   return (
@@ -100,8 +172,17 @@ function ItemCard({ item }: { item: FileItem }) {
       {newModal   && <NewItemModal type={newModal} parentPath={item.path} onClose={() => setNewModal(null)} />}
       {moveToOpen && <MoveToModal item={item} onClose={() => setMoveToOpen(false)} />}
 
-      <div className="relative group">
-        {/* Three-dot menu */}
+      <div
+        className="relative group"
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* ⋯ menu */}
         <div ref={menuRef} className="absolute right-2 top-1/2 -translate-y-1/2 z-20">
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v); }}
@@ -149,11 +230,7 @@ function ItemCard({ item }: { item: FileItem }) {
               className="flex-1 bg-transparent text-sm font-medium text-zinc-200 outline-none border-b border-red-500 pb-0.5 min-w-0" />
           </div>
         ) : (
-          <div
-            onClick={() => router.push(`/content/${item.path}`)}
-            onDoubleClick={(e) => { e.stopPropagation(); startRename(); }}
-            className={cardClass}
-          >
+          <div onClick={() => router.push(`/content/${item.path}`)} onDoubleClick={(e) => { e.stopPropagation(); startRename(); }} className={cardClass}>
             {item.type === "dir"
               ? <FolderIcon size={18} className={clsx("shrink-0", sector?.iconColor ?? "text-amber-400")} />
               : <FileText size={18} className="text-zinc-600 shrink-0" />}
@@ -167,15 +244,93 @@ function ItemCard({ item }: { item: FileItem }) {
   );
 }
 
-interface Props {
-  items: FileItem[];
-  currentPath?: string;
+// ── Ancestor drop zones ───────────────────────────────────────────────────────
+
+function AncestorZone({
+  targetPath, label, onMove,
+}: { targetPath: string; label: string; onMove: (from: string, to: string) => void }) {
+  const [isOver, setIsOver] = useState(false);
+  const count = useRef(0);
+  return (
+    <div
+      onDragEnter={(e) => { e.preventDefault(); count.current++; setIsOver(true); }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+      onDragLeave={() => { count.current--; if (count.current <= 0) { count.current = 0; setIsOver(false); } }}
+      onDrop={(e) => {
+        e.preventDefault(); count.current = 0; setIsOver(false);
+        const from = e.dataTransfer.getData("application/x-orelis");
+        if (from) onMove(from, targetPath);
+      }}
+      className={clsx(
+        "flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed text-sm transition-all",
+        isOver ? "border-red-500 bg-red-500/10 text-red-400 scale-[1.01]" : "border-zinc-700/60 text-zinc-600",
+      )}
+    >
+      <ArrowUp size={13} />
+      Drop here → <span className="font-medium">{label}</span>
+    </div>
+  );
 }
 
-export default function ContentGrid({ items, currentPath = "" }: Props) {
+function AncestorZones({ currentPath, onMove }: { currentPath: string; onMove: (from: string, to: string) => void }) {
+  if (!currentPath) return null;
+  const parts = currentPath.split("/");
+  const zones: { targetPath: string; label: string }[] = [];
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const targetPath = parts.slice(0, i).join("/");
+    zones.push({ targetPath, label: i === 0 ? "Root" : parts[i - 1] });
+  }
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {items.map(item => <ItemCard key={item.path} item={item} />)}
+    <div className="flex flex-col gap-1.5 mb-4">
+      {zones.map(z => <AncestorZone key={z.targetPath || "__root__"} {...z} onMove={onMove} />)}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+interface Props { items: FileItem[]; currentPath?: string }
+
+export default function ContentGrid({ items, currentPath = "" }: Props) {
+  const [moving,    setMoving]    = useState(false);
+  const [moveError, setMoveError] = useState("");
+
+  async function handleMove(fromPath: string, toParentPath: string) {
+    setMoving(true);
+    const err = await moveItem(fromPath, toParentPath);
+    setMoving(false);
+    if (err) { setMoveError(err); setTimeout(() => setMoveError(""), 4000); }
+  }
+
+  return (
+    <div>
+      {moving && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-zinc-300 text-sm shadow-2xl pointer-events-none">
+          <Loader2 size={14} className="animate-spin text-red-400" /> Moving…
+        </div>
+      )}
+      {moveError && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[200] bg-zinc-900 border border-red-500/50 rounded-lg px-4 py-2.5 text-red-400 text-sm shadow-2xl">
+          {moveError}
+        </div>
+      )}
+
+      <AncestorZones currentPath={currentPath} onMove={handleMove} />
+
+      <p className="text-xs text-zinc-600 mb-4">
+        Drag any card onto a folder to move it. Use <span className="text-zinc-500">⋯</span> for rename, delete, or precise moves.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {items.map(item => (
+          <ItemCard
+            key={item.path}
+            item={item}
+            onMoveStart={() => setMoving(true)}
+            onMoveDone={(err) => { setMoving(false); if (err) { setMoveError(err); setTimeout(() => setMoveError(""), 4000); } }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
