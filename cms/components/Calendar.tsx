@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import {
   ChevronLeft, ChevronRight, CalendarDays, LayoutGrid,
-  X, User, Clock, Calendar, ArrowRight, Video, CheckCircle2,
+  X, User, Clock, Calendar as CalIcon, ArrowRight, Video, CheckCircle2,
   Circle, Timer,
 } from "lucide-react";
 import clsx from "clsx";
@@ -125,7 +125,7 @@ function EventModal({
                 )}
                 {(task.startDate || task.dueDate) && (
                   <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-                    <Calendar size={12} className="text-zinc-600" />
+                    <CalIcon size={12} className="text-zinc-600" />
                     {task.startDate && task.dueDate
                       ? <>{fmtDate(task.startDate)} <ArrowRight size={10} className="text-zinc-700" /> {fmtDate(task.dueDate)}</>
                       : fmtDate(task.startDate ?? task.dueDate!)}
@@ -140,7 +140,7 @@ function EventModal({
             <>
               <div className="flex flex-wrap gap-3">
                 <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-                  <Calendar size={12} className="text-zinc-600" /> {fmtDate(meeting.date)}
+                  <CalIcon size={12} className="text-zinc-600" /> {fmtDate(meeting.date)}
                 </span>
                 {meeting.time && (
                   <span className="flex items-center gap-1.5 text-xs text-zinc-500">
