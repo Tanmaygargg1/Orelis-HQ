@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Plus, X, RefreshCw, Clock, Users, FileText, Pencil, Trash2, Video } from "lucide-react";
+import { Plus, X, RefreshCw, Clock, Users, Pencil, Trash2, Video, CheckCircle2, Circle } from "lucide-react";
 import clsx from "clsx";
 import type { Meeting } from "@/lib/types";
 import { broadcastRefresh, useRefreshListener } from "@/lib/refresh";
@@ -113,18 +113,28 @@ function MeetingModal({
   );
 }
 
-function MeetingCard({ meeting, sha, onEdit, onDelete }: {
-  meeting: Meeting; sha?: string; onEdit: () => void; onDelete: () => void;
+function MeetingCard({ meeting, sha, onEdit, onDelete, onToggleComplete }: {
+  meeting: Meeting; sha?: string;
+  onEdit: () => void; onDelete: () => void; onToggleComplete: () => void;
 }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors group">
+    <div className={clsx(
+      "bg-zinc-900 border rounded-xl p-4 transition-colors group",
+      meeting.completed ? "border-emerald-800/40 bg-emerald-950/20" : "border-zinc-800 hover:border-zinc-700",
+    )}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
-            <Video size={14} className="text-blue-400" />
-          </div>
+          {/* Complete toggle */}
+          <button onClick={onToggleComplete} className="mt-0.5 shrink-0 transition-colors hover:scale-110">
+            {meeting.completed
+              ? <CheckCircle2 size={18} className="text-emerald-400" />
+              : <Circle size={18} className="text-zinc-600 hover:text-zinc-400" />}
+          </button>
           <div className="min-w-0">
-            <h3 className="font-medium text-zinc-200 truncate">{meeting.title}</h3>
+            <h3 className={clsx(
+              "font-medium truncate transition-colors",
+              meeting.completed ? "text-zinc-500 line-through" : "text-zinc-200",
+            )}>{meeting.title}</h3>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-xs text-zinc-500">{formatDate(meeting.date)}</span>
               {meeting.time && (
@@ -138,8 +148,11 @@ function MeetingCard({ meeting, sha, onEdit, onDelete }: {
                   <Users size={11} /> {meeting.attendees}
                 </span>
               )}
+              {meeting.completed && (
+                <span className="text-xs text-emerald-600 font-medium">Completed</span>
+              )}
             </div>
-            {meeting.notes && (
+            {meeting.notes && !meeting.completed && (
               <p className="text-xs text-zinc-600 mt-2 leading-relaxed line-clamp-2">{meeting.notes}</p>
             )}
           </div>
@@ -181,6 +194,15 @@ export default function MeetingsPage() {
       body: JSON.stringify({ id, sha }),
     });
     broadcastRefresh();
+    load();
+  }
+
+  async function handleToggleComplete(meeting: Meeting) {
+    await fetch("/api/meetings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ meeting: { ...meeting, completed: !meeting.completed }, sha }),
+    });
     load();
   }
 
@@ -227,7 +249,8 @@ export default function MeetingsPage() {
                     <div className="space-y-2">
                       {items.map(m => (
                         <MeetingCard key={m.id} meeting={m} sha={sha}
-                          onEdit={() => setModal(m)} onDelete={() => handleDelete(m.id)} />
+                          onEdit={() => setModal(m)} onDelete={() => handleDelete(m.id)}
+                          onToggleComplete={() => handleToggleComplete(m)} />
                       ))}
                     </div>
                   </div>
@@ -245,7 +268,8 @@ export default function MeetingsPage() {
                     <div className="space-y-2">
                       {items.map(m => (
                         <MeetingCard key={m.id} meeting={m} sha={sha}
-                          onEdit={() => setModal(m)} onDelete={() => handleDelete(m.id)} />
+                          onEdit={() => setModal(m)} onDelete={() => handleDelete(m.id)}
+                          onToggleComplete={() => handleToggleComplete(m)} />
                       ))}
                     </div>
                   </div>

@@ -14,7 +14,7 @@ export async function GET() {
   if (cached) return NextResponse.json(cached);
   try {
     const data = await getMeetings();
-    cacheSet(KEY, data, 15_000);
+    cacheSet(KEY, data, 120_000); // 2 min
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

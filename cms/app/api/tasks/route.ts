@@ -16,7 +16,7 @@ export async function GET() {
 
   try {
     const data = await getTasks();
-    cacheSet(TASKS_KEY, data, 15_000); // 15s for tasks — they change more often
+    cacheSet(TASKS_KEY, data, 120_000); // 2 min
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

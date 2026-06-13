@@ -20,10 +20,12 @@ function FileNode({
   item,
   depth = 0,
   onNavigate,
+  isRoot = false,
 }: {
   item: FileItem;
   depth?: number;
   onNavigate?: () => void;
+  isRoot?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [children, setChildren] = useState<FileItem[]>([]);
@@ -134,10 +136,13 @@ function FileNode({
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
             <Pencil size={11} /> Rename
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setMoveToOpen(true); }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
-            <FolderInput size={11} /> Move to…
-          </button>
+          {/* Root folders are protected — no Move or Delete */}
+          {!isRoot && (
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setMoveToOpen(true); }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+              <FolderInput size={11} /> Move to…
+            </button>
+          )}
           {item.type === "dir" && (<>
             <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setNewModal("file"); }}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
@@ -148,11 +153,13 @@ function FileNode({
               <FolderPlus size={11} /> New folder here
             </button>
           </>)}
-          <div className="border-t border-zinc-800 my-1" />
-          <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setConfirmDelete(true); }}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-zinc-800">
-            <Trash2 size={11} /> Delete
-          </button>
+          {!isRoot && (<>
+            <div className="border-t border-zinc-800 my-1" />
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setConfirmDelete(true); }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-zinc-800">
+              <Trash2 size={11} /> Delete
+            </button>
+          </>)}
         </div>
       )}
     </div>
@@ -257,7 +264,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </div>
         <div className="space-y-0.5">
-          {files.map(item => <FileNode key={item.path} item={item} onNavigate={onNavigate} />)}
+          {files.map(item => (
+            <FileNode key={item.path} item={item} onNavigate={onNavigate} isRoot={item.type === "dir"} />
+          ))}
         </div>
       </div>
 

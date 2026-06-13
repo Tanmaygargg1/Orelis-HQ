@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: Params) {
   try {
     const result = await getContents(subPath);
     // Cache dirs for 30s, files for 60s (files change less often)
-    cacheSet(key, result, result.type === "dir" ? 30_000 : 60_000);
+    cacheSet(key, result, result.type === "dir" ? 300_000 : 600_000); // 5 min dirs, 10 min files
     return NextResponse.json(result);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

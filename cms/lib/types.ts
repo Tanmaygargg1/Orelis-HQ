@@ -36,6 +36,7 @@ export interface Meeting {
   duration?: number;    // minutes
   attendees?: string;
   notes?: string;
+  completed?: boolean;
   createdAt: string;
   updatedAt: string;
 }
