@@ -1,0 +1,15 @@
+{
+  "meetings": [
+    {
+      "title": "ORELIS company presentation",
+      "date": "2026-06-14",
+      "time": "18:00",
+      "duration": 60,
+      "attendees": "Abhidyu, Vijayant, Sreepadh, Tanmay",
+      "notes": "Orelis presentation + onboarding process",
+      "id": "3c7feac2-5106-409a-b84c-81b74207ecee",
+      "createdAt": "2026-06-13T07:37:01.984Z",
+      "updatedAt": "2026-06-13T07:37:01.984Z"
+    }
+  ]
+}
