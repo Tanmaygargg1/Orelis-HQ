@@ -1,5 +1,5 @@
 import { Octokit } from "@octokit/rest";
-import type { FileItem, Task, Meeting } from "./types";
+import type { FileItem, Task, Meeting, TimelineItem } from "./types";
 
 const getClient = () => new Octokit({ auth: process.env.GITHUB_TOKEN });
 const owner = () => process.env.GITHUB_OWNER!;
@@ -132,6 +132,28 @@ export async function saveMeetings(meetings: Meeting[], sha?: string) {
     owner: owner(), repo: repo(), path: MEETINGS_PATH,
     message: "Update meetings",
     content: Buffer.from(JSON.stringify({ meetings }, null, 2)).toString("base64"),
+    sha,
+  });
+}
+
+const TIMELINE_PATH = "data/timeline.json";
+
+export async function getTimeline(): Promise<{ items: TimelineItem[]; sha?: string }> {
+  try {
+    const { data } = await getClient().repos.getContent({ owner: owner(), repo: repo(), path: TIMELINE_PATH });
+    if (Array.isArray(data) || data.type !== "file") return { items: [] };
+    const parsed = JSON.parse(Buffer.from(data.content, "base64").toString("utf-8"));
+    return { items: parsed.items || [], sha: data.sha };
+  } catch {
+    return { items: [], sha: undefined };
+  }
+}
+
+export async function saveTimeline(items: TimelineItem[], sha?: string) {
+  await getClient().repos.createOrUpdateFileContents({
+    owner: owner(), repo: repo(), path: TIMELINE_PATH,
+    message: "Update timeline",
+    content: Buffer.from(JSON.stringify({ items }, null, 2)).toString("base64"),
     sha,
   });
 }

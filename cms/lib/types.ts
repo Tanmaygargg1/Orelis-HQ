@@ -28,6 +28,21 @@ export interface Task {
   updatedAt: string;
 }
 
+export type TimelineCategory = "Milestone" | "Product" | "Marketing" | "Finance" | "Team" | "Other";
+export type TimelineStatus   = "planned" | "in-progress" | "completed" | "delayed";
+
+export interface TimelineItem {
+  id: string;
+  title: string;
+  date: string;         // ISO date YYYY-MM-DD
+  endDate?: string;     // optional end date for ranges
+  category: TimelineCategory;
+  status: TimelineStatus;
+  description?: string; // markdown notes
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Meeting {
   id: string;
   title: string;

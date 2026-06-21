@@ -7,7 +7,7 @@ import {
   FileText, CheckSquare, ChevronRight, ChevronDown,
   Folder, FolderOpen, FilePlus, FolderPlus, LogOut, File, X,
   MoreHorizontal, Pencil, Trash2, FolderInput, CalendarDays, Video,
-  GripVertical,
+  GripVertical, GitBranch,
 } from "lucide-react";
 import clsx from "clsx";
 import type { FileItem } from "@/lib/types";
@@ -271,6 +271,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const navItems = [
     { href: "/content",  label: "Content",   icon: FileText     },
     { href: "/tasks",    label: "Tasks",      icon: CheckSquare  },
+    { href: "/timeline", label: "Timeline",   icon: GitBranch    },
     { href: "/calendar", label: "Calendar",   icon: CalendarDays },
     { href: "/meetings", label: "Meetings",   icon: Video        },
   ];
