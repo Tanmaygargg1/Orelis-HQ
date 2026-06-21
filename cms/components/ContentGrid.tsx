@@ -4,9 +4,8 @@ import { useRouter } from "next/navigation";
 import {
   Folder, FileText, MoreHorizontal, Building2, Megaphone,
   BarChart3, Layers, Users, Lightbulb, Pencil, Trash2,
-  FilePlus, FolderPlus, FolderInput,
+  FilePlus, FolderPlus, FolderInput, GripVertical,
 } from "lucide-react";
-// Note: moveItem is still exported for use by Sidebar
 import clsx from "clsx";
 import type { FileItem } from "@/lib/types";
 import { broadcastRefresh } from "@/lib/refresh";
@@ -51,12 +50,16 @@ function ItemCard({ item }: { item: FileItem }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [newModal,      setNewModal]      = useState<"file" | "folder" | null>(null);
   const [moveToOpen,    setMoveToOpen]    = useState(false);
+  const [isDragging,    setIsDragging]    = useState(false);
+  const [isDragOver,    setIsDragOver]    = useState(false);
+  const dragCount = useRef(0);
   const renameRef       = useRef<HTMLInputElement>(null);
   const menuRef         = useRef<HTMLDivElement>(null);
   const renameSubmitted = useRef(false);
 
   const sector     = item.type === "dir" ? SECTOR[item.name] : undefined;
   const FolderIcon = sector?.icon ?? Folder;
+  const isDropTarget = item.type === "dir";
 
   useEffect(() => { if (renaming) renameRef.current?.focus(); }, [renaming]);
   useEffect(() => {
@@ -100,6 +103,27 @@ function ItemCard({ item }: { item: FileItem }) {
     if (!(await res.json()).error) broadcastRefresh();
   }
 
+  // ── HTML5 DnD ──
+  function onDragEnter(e: React.DragEvent) {
+    if (!isDropTarget) return;
+    e.preventDefault(); dragCount.current++; setIsDragOver(true);
+  }
+  function onDragOver(e: React.DragEvent) {
+    if (!isDropTarget) return;
+    e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "move";
+  }
+  function onDragLeave() {
+    if (!isDropTarget) return;
+    dragCount.current--; if (dragCount.current <= 0) { dragCount.current = 0; setIsDragOver(false); }
+  }
+  async function onDrop(e: React.DragEvent) {
+    if (!isDropTarget) return;
+    e.preventDefault(); e.stopPropagation();
+    dragCount.current = 0; setIsDragOver(false);
+    const from = e.dataTransfer.getData("application/x-orelis");
+    if (from) await moveItem(from, item.path);
+  }
+
   return (
     <>
       {confirmDelete && (
@@ -109,7 +133,27 @@ function ItemCard({ item }: { item: FileItem }) {
       {newModal   && <NewItemModal type={newModal} parentPath={item.path} onClose={() => setNewModal(null)} />}
       {moveToOpen && <MoveToModal item={item} onClose={() => setMoveToOpen(false)} />}
 
-      <div className="relative group">
+      <div
+        className={clsx("relative group", isDragging && "opacity-40")}
+        onDragEnter={onDragEnter} onDragOver={onDragOver}
+        onDragLeave={onDragLeave} onDrop={onDrop}
+      >
+        {/* Drag grip handle */}
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData("application/x-orelis", item.path);
+            e.dataTransfer.effectAllowed = "move";
+            setIsDragging(true);
+          }}
+          onDragEnd={() => setIsDragging(false)}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 text-zinc-600 hover:text-zinc-400"
+          title="Drag to move"
+        >
+          <GripVertical size={14} />
+        </div>
+
         {/* Three-dot menu */}
         <div ref={menuRef} className="absolute right-2 top-1/2 -translate-y-1/2 z-20">
           <button
@@ -150,7 +194,7 @@ function ItemCard({ item }: { item: FileItem }) {
         {/* Card content — click navigates, double-click renames */}
         {renaming ? (
           <div className={clsx(
-            "flex items-center gap-3 p-4 pr-10 border rounded-xl",
+            "flex items-center gap-3 p-4 pl-8 pr-10 border rounded-xl",
             sector ? sector.border : "border-zinc-800 bg-zinc-900",
           )}>
             {item.type === "dir"
@@ -166,15 +210,17 @@ function ItemCard({ item }: { item: FileItem }) {
             onClick={() => router.push(`/content/${item.path}`)}
             onDoubleClick={(e) => { e.stopPropagation(); startRename(); }}
             className={clsx(
-              "flex items-center gap-3 p-4 pr-10 border rounded-xl transition-colors cursor-pointer select-none",
-              sector ? sector.border
-                : item.type === "dir"
-                  ? "border-zinc-800 bg-zinc-900 hover:border-zinc-700"
-                  : "border-zinc-800 bg-zinc-900 hover:border-red-500/30 hover:bg-zinc-800",
+              "flex items-center gap-3 p-4 pl-8 pr-10 border rounded-xl transition-colors cursor-pointer select-none",
+              isDragOver
+                ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/40"
+                : sector ? sector.border
+                  : item.type === "dir"
+                    ? "border-zinc-800 bg-zinc-900 hover:border-zinc-700"
+                    : "border-zinc-800 bg-zinc-900 hover:border-red-500/30 hover:bg-zinc-800",
             )}
           >
             {item.type === "dir"
-              ? <FolderIcon size={18} className={clsx("shrink-0", sector?.iconColor ?? "text-amber-400")} />
+              ? <FolderIcon size={18} className={clsx("shrink-0", isDragOver ? "text-red-400" : (sector?.iconColor ?? "text-amber-400"))} />
               : <FileText size={18} className="text-zinc-600 shrink-0" />}
             <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-100 truncate transition-colors">
               {item.name.replace(/\.md$/, "")}
