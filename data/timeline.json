@@ -10,6 +10,17 @@
       "id": "61f72488-b76f-49e4-a200-59b18f26ec44",
       "createdAt": "2026-06-21T05:33:30.087Z",
       "updatedAt": "2026-06-21T05:33:30.087Z"
+    },
+    {
+      "title": "Draft Marketing Plan",
+      "date": "2026-06-21",
+      "endDate": "2026-06-26",
+      "category": "Product",
+      "status": "planned",
+      "description": "",
+      "id": "a0fb7527-21ac-4519-9810-295132cb2601",
+      "createdAt": "2026-06-21T05:48:43.181Z",
+      "updatedAt": "2026-06-21T05:48:43.181Z"
     }
   ]
 }
