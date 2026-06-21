@@ -23,16 +23,16 @@ export interface CalEvent {
 
 // ── Colour scheme ─────────────────────────────────────────────────────────────
 
-const TASK_CLS    = "bg-zinc-600/80 text-zinc-200";
+const TASK_CLS    = "bg-zinc-700/70 text-zinc-300";
 const MEETING_CLS = "bg-blue-600/80 text-blue-100";
 
 const TIMELINE_CAT_CLS: Record<string, string> = {
   Milestone: "bg-amber-500/30 text-amber-200 border border-amber-500/20",
-  Product:   "bg-blue-500/30 text-blue-200 border border-blue-500/20",
+  Product:   "bg-indigo-500/30 text-indigo-200 border border-indigo-500/20",
   Marketing: "bg-orange-500/30 text-orange-200 border border-orange-500/20",
   Finance:   "bg-emerald-500/30 text-emerald-200 border border-emerald-500/20",
   Team:      "bg-purple-500/30 text-purple-200 border border-purple-500/20",
-  Other:     "bg-zinc-500/30 text-zinc-300 border border-zinc-500/20",
+  Other:     "bg-slate-500/30 text-slate-300 border border-slate-500/20",
 };
 
 function eventCls(event: CalEvent) {
@@ -126,7 +126,9 @@ function SpanBars({ weekMulti, week, onSelect }: {
               eventCls(event),
             )}
           >
-            {startsHere ? event.title : <span className="opacity-50">↳ {event.title}</span>}
+            {startsHere
+              ? <><span className="opacity-60 mr-1">{eventLabel(event)}</span>{event.title}</>
+              : <span className="opacity-50">↳ {event.title}</span>}
           </div>
         );
       })}
@@ -346,15 +348,19 @@ function EventModal({
 
 // ── Event chip (single-day, inside a cell) ────────────────────────────────────
 
+function eventLabel(event: CalEvent): string {
+  if (event.type === "meeting")  return event.time ? `${event.time} ·` : "Meeting ·";
+  if (event.type === "timeline") return `${event.category ?? "Timeline"} ·`;
+  return "Task ·";
+}
+
 function EventChip({ event, onSelect }: { event: CalEvent; onSelect: () => void }) {
   return (
     <div
       onClick={e => { e.stopPropagation(); onSelect(); }}
       title={event.title}
       className={clsx("text-xs px-1.5 py-0.5 rounded truncate max-w-full cursor-pointer hover:opacity-80 transition-opacity", eventCls(event))}>
-      {event.type === "meeting" && event.time && <span className="opacity-70 mr-1">{event.time}</span>}
-      {event.type === "timeline" && <span className="mr-1 opacity-60">◆</span>}
-      {event.title}
+      <span className="opacity-60 mr-1">{eventLabel(event)}</span>{event.title}
     </div>
   );
 }
@@ -633,9 +639,11 @@ export default function Calendar() {
           <button onClick={goToday} className="ml-2 px-3 py-1.5 text-xs text-zinc-400 border border-zinc-700 rounded-lg hover:border-zinc-600 hover:text-zinc-200 transition-colors">Today</button>
         </div>
         <div className="flex items-center gap-3 text-xs text-zinc-500 flex-wrap">
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-600 inline-block"/>Task</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-600 inline-block"/>Meeting</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-500 inline-block"/>Task</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block"/>Meeting</span>
+          <span className="text-zinc-700">·</span>
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>Milestone</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-400 inline-block"/>Product</span>
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block"/>Marketing</span>
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>Finance</span>
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block"/>Team</span>
