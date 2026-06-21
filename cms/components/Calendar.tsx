@@ -278,6 +278,34 @@ function EventChip({ event, onSelect }: { event: CalEvent; onSelect: () => void 
   return <div onClick={e => { e.stopPropagation(); onSelect(); }} className={clsx(base, STATUS_COLOR[event.status ?? "todo"])} title={event.title}>{event.title}</div>;
 }
 
+// ── Span bar (multi-day event rendered as a continuous pill) ─────────────────
+
+function spanBarCls(event: CalEvent) {
+  if (event.type === "meeting")  return "bg-blue-600/80 text-blue-100";
+  if (event.type === "timeline") return "bg-amber-500/30 text-amber-200 border border-amber-500/20";
+  return STATUS_COLOR[event.status ?? "todo"];
+}
+
+// Returns [colStart 1-indexed, colEnd exclusive] for a multi-day event within a week.
+// Returns null if the event doesn't overlap this week at all.
+function barCols(event: CalEvent, week: (string | null)[]): [number, number] | null {
+  if (!event.endDate || event.endDate <= event.startDate) return null;
+  const nonNull = week.filter(Boolean) as string[];
+  if (!nonNull.length) return null;
+  const weekFirst = nonNull[0];
+  const weekLast  = nonNull[nonNull.length - 1];
+  if (event.startDate > weekLast || event.endDate < weekFirst) return null;
+
+  let cs = week.findIndex(d => d !== null && d >= event.startDate);
+  if (cs === -1) cs = week.findIndex(d => d !== null)!; // started before this week
+
+  let ce = -1;
+  for (let i = 6; i >= 0; i--) { if (week[i] !== null && week[i]! <= event.endDate) { ce = i; break; } }
+  if (ce === -1) ce = week.findLastIndex(d => d !== null); // ends after this week
+
+  return [cs + 1, ce + 2]; // css grid is 1-indexed, end is exclusive
+}
+
 // ── Monthly view ──────────────────────────────────────────────────────────────
 
 function MonthlyView({ year, month, events, onSelect, onDayClick }: {
@@ -288,41 +316,105 @@ function MonthlyView({ year, month, events, onSelect, onDayClick }: {
   const firstDay    = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = (firstDay.getDay() + 6) % 7;
-  const cells: (number | null)[] = [...Array(startOffset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
-  while (cells.length % 7 !== 0) cells.push(null);
+
+  const allDays: (string | null)[] = [
+    ...Array(startOffset).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) =>
+      `${year}-${String(month + 1).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`),
+  ];
+  while (allDays.length % 7 !== 0) allDays.push(null);
+
+  const weeks: (string | null)[][] = [];
+  for (let i = 0; i < allDays.length; i += 7) weeks.push(allDays.slice(i, i + 7));
+
+  const multiDayEvents = events.filter(e => e.endDate && e.endDate > e.startDate);
+  const singleEvents   = events.filter(e => !e.endDate || e.endDate <= e.startDate);
 
   return (
-    <div>
-      <div className="grid grid-cols-7 mb-1">
-        {DAY_SHORT.map(d => <div key={d} className="text-center text-xs font-medium text-zinc-600 py-2">{d}</div>)}
+    <div className="border border-zinc-800 rounded-xl overflow-hidden">
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 border-b border-zinc-800">
+        {DAY_SHORT.map(d => (
+          <div key={d} className="text-center text-xs font-medium text-zinc-600 py-2">{d}</div>
+        ))}
       </div>
-      <div className="grid grid-cols-7 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
-        {cells.map((day, i) => {
-          if (!day) return <div key={i} className="bg-zinc-950 min-h-[80px] md:min-h-[96px]" />;
-          const d = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const dayEvents = events.filter(e => isInRange(d, e.startDate, e.endDate));
-          const isToday = d === today;
-          return (
-            <div key={i} onClick={() => onDayClick(d)}
-              className={clsx("bg-zinc-950 p-1 min-h-[80px] md:min-h-[96px] group/cell cursor-pointer hover:bg-zinc-900/60 transition-colors", isToday && "bg-zinc-900/80")}>
-              <div className="flex items-center justify-between mb-1">
-                <span className={clsx("text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full",
-                  isToday ? "bg-red-600 text-white" : "text-zinc-500")}>
-                  {day}
-                </span>
-                <button onClick={e => { e.stopPropagation(); onDayClick(d); }}
-                  className="opacity-0 group-hover/cell:opacity-100 transition-opacity p-0.5 text-zinc-600 hover:text-zinc-400">
-                  <Plus size={11} />
-                </button>
+
+      {/* Week rows */}
+      {weeks.map((week, wi) => {
+        const nonNull   = week.filter(Boolean) as string[];
+        if (!nonNull.length) return null;
+        const weekFirst = nonNull[0];
+        const weekLast  = nonNull[nonNull.length - 1];
+        const weekMulti = multiDayEvents.filter(e =>
+          e.startDate <= weekLast && (e.endDate ?? e.startDate) >= weekFirst);
+
+        return (
+          <div key={wi} className="border-b border-zinc-800 last:border-b-0">
+            {/* Continuous span bars */}
+            {weekMulti.length > 0 && (
+              <div className="px-px pt-1 space-y-0.5 bg-zinc-950">
+                {weekMulti.map(event => {
+                  const cols = barCols(event, week);
+                  if (!cols) return null;
+                  const [cs, ce] = cols;
+                  const startsHere = event.startDate >= weekFirst;
+                  const endsHere   = (event.endDate ?? "") <= weekLast;
+                  return (
+                    <div key={event.id} className="grid grid-cols-7">
+                      <div
+                        style={{ gridColumn: `${cs} / ${ce}` }}
+                        onClick={e => { e.stopPropagation(); onSelect(event); }}
+                        title={event.title}
+                        className={clsx(
+                          "text-xs px-2 py-1 min-h-[20px] truncate cursor-pointer hover:opacity-80 transition-opacity",
+                          startsHere ? "rounded-l-full" : "rounded-l-none",
+                          endsHere   ? "rounded-r-full" : "rounded-r-none",
+                          spanBarCls(event),
+                        )}
+                      >
+                        {startsHere ? event.title : <span className="opacity-50">↳ {event.title}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="space-y-0.5">
-                {dayEvents.slice(0, 3).map(e => <EventChip key={e.id + d} event={e} onSelect={() => onSelect(e)} />)}
-                {dayEvents.length > 3 && <div className="text-xs text-zinc-600 pl-1">+{dayEvents.length - 3} more</div>}
-              </div>
+            )}
+
+            {/* Day cells */}
+            <div className="grid grid-cols-7 gap-px bg-zinc-800">
+              {week.map((day, i) => {
+                if (!day) return <div key={i} className="bg-zinc-950 min-h-[72px] md:min-h-[80px]" />;
+                const dayEvents = singleEvents.filter(e => e.startDate === day);
+                const isToday   = day === today;
+                return (
+                  <div key={i} onClick={() => onDayClick(day)}
+                    className={clsx("bg-zinc-950 p-1 min-h-[72px] md:min-h-[80px] group/cell cursor-pointer hover:bg-zinc-900/60 transition-colors",
+                      isToday && "bg-zinc-900/80")}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={clsx("text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full",
+                        isToday ? "bg-red-600 text-white" : "text-zinc-500")}>
+                        {parseInt(day.split("-")[2])}
+                      </span>
+                      <button onClick={e => { e.stopPropagation(); onDayClick(day); }}
+                        className="opacity-0 group-hover/cell:opacity-100 transition-opacity p-0.5 text-zinc-600 hover:text-zinc-400">
+                        <Plus size={11} />
+                      </button>
+                    </div>
+                    <div className="space-y-0.5">
+                      {dayEvents.slice(0, 2).map(e => (
+                        <EventChip key={e.id + day} event={e} onSelect={() => onSelect(e)} />
+                      ))}
+                      {dayEvents.length > 2 && (
+                        <div className="text-xs text-zinc-600 pl-1">+{dayEvents.length - 2} more</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -334,9 +426,18 @@ function WeeklyView({ weekStart, events, onSelect, onDayClick }: {
   onSelect: (e: CalEvent) => void; onDayClick: (date: string) => void;
 }) {
   const today = ymd(new Date());
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const days  = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const week  = days.map(d => ymd(d));
+
+  const multiDayEvents = events.filter(e => e.endDate && e.endDate > e.startDate);
+  const singleEvents   = events.filter(e => !e.endDate || e.endDate <= e.startDate);
+  const weekFirst = week[0], weekLast = week[6];
+  const weekMulti = multiDayEvents.filter(e =>
+    e.startDate <= weekLast && (e.endDate ?? e.startDate) >= weekFirst);
+
   return (
     <div>
+      {/* Day headers */}
       <div className="grid grid-cols-7 gap-px mb-1">
         {days.map((day, i) => {
           const isToday = ymd(day) === today;
@@ -344,33 +445,70 @@ function WeeklyView({ weekStart, events, onSelect, onDayClick }: {
             <div key={i} className="text-center py-2">
               <div className="text-xs text-zinc-600 mb-1">{DAY_SHORT[i]}</div>
               <span className={clsx("text-sm font-medium w-8 h-8 mx-auto flex items-center justify-center rounded-full",
-                isToday ? "bg-red-600 text-white" : "text-zinc-400")}>{day.getDate()}</span>
+                isToday ? "bg-red-600 text-white" : "text-zinc-400")}>
+                {day.getDate()}
+              </span>
             </div>
           );
         })}
       </div>
-      <div className="grid grid-cols-7 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
-        {days.map((day, i) => {
-          const d = ymd(day);
-          const dayEvents = events.filter(e => isInRange(d, e.startDate, e.endDate));
-          const isToday = d === today;
-          return (
-            <div key={i} onClick={() => onDayClick(d)}
-              className={clsx("bg-zinc-950 p-1.5 min-h-[160px] cursor-pointer hover:bg-zinc-900/60 transition-colors group/cell", isToday && "bg-zinc-900/80")}>
-              <div className="flex justify-end mb-1">
-                <button onClick={e => { e.stopPropagation(); onDayClick(d); }}
-                  className="opacity-0 group-hover/cell:opacity-100 transition-opacity p-0.5 text-zinc-600 hover:text-zinc-400">
-                  <Plus size={11} />
-                </button>
+
+      <div className="border border-zinc-800 rounded-xl overflow-hidden">
+        {/* Span bars */}
+        {weekMulti.length > 0 && (
+          <div className="px-px pt-1 pb-1 space-y-0.5 bg-zinc-950 border-b border-zinc-800">
+            {weekMulti.map(event => {
+              const cols = barCols(event, week);
+              if (!cols) return null;
+              const [cs, ce] = cols;
+              const startsHere = event.startDate >= weekFirst;
+              const endsHere   = (event.endDate ?? "") <= weekLast;
+              return (
+                <div key={event.id} className="grid grid-cols-7">
+                  <div
+                    style={{ gridColumn: `${cs} / ${ce}` }}
+                    onClick={e => { e.stopPropagation(); onSelect(event); }}
+                    title={event.title}
+                    className={clsx(
+                      "text-xs px-2 py-0.5 truncate cursor-pointer hover:opacity-80 transition-opacity",
+                      startsHere ? "rounded-l-full" : "rounded-l-none",
+                      endsHere   ? "rounded-r-full" : "rounded-r-none",
+                      spanBarCls(event),
+                    )}
+                  >
+                    {startsHere ? event.title : ""}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Day columns */}
+        <div className="grid grid-cols-7 gap-px bg-zinc-800">
+          {days.map((day, i) => {
+            const d = ymd(day);
+            const dayEvents = singleEvents.filter(e => e.startDate === d);
+            const isToday   = d === today;
+            return (
+              <div key={i} onClick={() => onDayClick(d)}
+                className={clsx("bg-zinc-950 p-1.5 min-h-[160px] cursor-pointer hover:bg-zinc-900/60 transition-colors group/cell",
+                  isToday && "bg-zinc-900/80")}>
+                <div className="flex justify-end mb-1">
+                  <button onClick={e => { e.stopPropagation(); onDayClick(d); }}
+                    className="opacity-0 group-hover/cell:opacity-100 transition-opacity p-0.5 text-zinc-600 hover:text-zinc-400">
+                    <Plus size={11} />
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {dayEvents.length === 0
+                    ? <div className="flex items-center justify-center py-6"><span className="text-xs text-zinc-800">—</span></div>
+                    : dayEvents.map(e => <EventChip key={e.id + d} event={e} onSelect={() => onSelect(e)} />)}
+                </div>
               </div>
-              <div className="space-y-1">
-                {dayEvents.length === 0
-                  ? <div className="flex items-center justify-center py-6"><span className="text-xs text-zinc-800">—</span></div>
-                  : dayEvents.map(e => <EventChip key={e.id + d} event={e} onSelect={() => onSelect(e)} />)}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
